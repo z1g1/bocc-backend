@@ -1,3 +1,4 @@
+/*
 const Airtable = require('airtable');
 const { fetchAttendeeByEmail, createAttendee, createCheckin } = require('./utils/airtable');
 
@@ -35,3 +36,9 @@ exports.handler = async (event) => {
         };
     }
 };
+*/
+
+export default async (req, context) => {
+    return new Response("Hello, world!");
+  };
+  
