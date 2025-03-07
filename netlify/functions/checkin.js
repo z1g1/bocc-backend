@@ -1,5 +1,5 @@
 const Airtable = require('airtable');
-const { fetchAttendeeByEmail, createAttendee, createCheckin } = require('./utils/airtable');
+const { fetchAttendeeByEmail, createAttendee, createCheckinEntry } = require('./utils/airtable');
 
 exports.handler = async (event) => {
     console.log('Received event:', event);
@@ -38,12 +38,12 @@ exports.handler = async (event) => {
 
         if (attendee) {
             // Create a new check-in entry for the existing attendee
-            await createCheckin(attendee.id);
+            await createCheckinEntry(attendee.id);
             console.log('Created check-in for existing attendee:', attendee.id);
         } else {
             // Create a new attendee and then create a check-in entry
             const newAttendee = await createAttendee(email);
-            await createCheckin(newAttendee.id);
+            await createCheckinEntry(newAttendee.id);
             console.log('Created new attendee and check-in:', newAttendee.id);
         }
 

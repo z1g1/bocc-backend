@@ -1,8 +1,8 @@
-import Airtable from 'airtable';
+const Airtable = require('airtable');
 
 const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(process.env.AIRTABLE_BASE_ID);
 
-export const fetchAttendeeByEmail = async (email) => {
+const fetchAttendeeByEmail = async (email) => {
     const records = await base('attendees').select({
         filterByFormula: `{email} = '${email}'`,
         maxRecords: 1
@@ -11,7 +11,7 @@ export const fetchAttendeeByEmail = async (email) => {
     return records.length > 0 ? records[0] : null;
 };
 
-export const createAttendee = async (email, name) => {
+const createAttendee = async (email, name) => {
     const record = await base('attendees').create({
         email,
         name
@@ -20,11 +20,17 @@ export const createAttendee = async (email, name) => {
     return record;
 };
 
-export const createCheckinEntry = async (attendeeId) => {
+const createCheckinEntry = async (attendeeId) => {
     const record = await base('checkins').create({
         attendee: [attendeeId],
         checkinTime: new Date().toISOString()
     });
 
     return record;
+};
+
+module.exports = {
+    fetchAttendeeByEmail,
+    createAttendee,
+    createCheckinEntry
 };
