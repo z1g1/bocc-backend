@@ -2,7 +2,7 @@ const Airtable = require('airtable');
 const { fetchAttendeeByEmail, createAttendee, createCheckin } = require('./utils/airtable');
 
 exports.handler = async (event) => {
-    const { email } = JSON.parse(event.body);
+    console.log('Received event:', event);
 
     const headers = {
         'Access-Control-Allow-Origin': '*',
@@ -11,6 +11,7 @@ exports.handler = async (event) => {
     };
 
     if (event.httpMethod === 'OPTIONS') {
+        console.log('Handling CORS preflight request');
         return {
             statusCode: 200,
             headers,
@@ -18,7 +19,11 @@ exports.handler = async (event) => {
         };
     }
 
+    const { email } = JSON.parse(event.body);
+    console.log('Parsed email:', email);
+
     if (!email) {
+        console.log('Email is missing in the request');
         return {
             statusCode: 400,
             headers,
@@ -29,14 +34,17 @@ exports.handler = async (event) => {
     try {
         // Check if the attendee exists
         const attendee = await fetchAttendeeByEmail(email);
+        console.log('Fetched attendee:', attendee);
 
         if (attendee) {
             // Create a new check-in entry for the existing attendee
             await createCheckin(attendee.id);
+            console.log('Created check-in for existing attendee:', attendee.id);
         } else {
             // Create a new attendee and then create a check-in entry
             const newAttendee = await createAttendee(email);
             await createCheckin(newAttendee.id);
+            console.log('Created new attendee and check-in:', newAttendee.id);
         }
 
         return {
@@ -45,6 +53,7 @@ exports.handler = async (event) => {
             body: JSON.stringify({ message: 'Check-in successful' }),
         };
     } catch (error) {
+        console.error('Error during check-in process:', error);
         return {
             statusCode: 500,
             headers,
