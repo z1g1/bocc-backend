@@ -1,13 +1,27 @@
-/*
 const Airtable = require('airtable');
 const { fetchAttendeeByEmail, createAttendee, createCheckin } = require('./utils/airtable');
 
 exports.handler = async (event) => {
     const { email } = JSON.parse(event.body);
 
+    const headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS'
+    };
+
+    if (event.httpMethod === 'OPTIONS') {
+        return {
+            statusCode: 200,
+            headers,
+            body: JSON.stringify({ message: 'CORS preflight response' }),
+        };
+    }
+
     if (!email) {
         return {
             statusCode: 400,
+            headers,
             body: JSON.stringify({ message: 'Email is required' }),
         };
     }
@@ -27,18 +41,14 @@ exports.handler = async (event) => {
 
         return {
             statusCode: 200,
+            headers,
             body: JSON.stringify({ message: 'Check-in successful' }),
         };
     } catch (error) {
         return {
             statusCode: 500,
+            headers,
             body: JSON.stringify({ message: 'Internal Server Error', error: error.message }),
         };
     }
 };
-*/
-
-export default async (req, context) => {
-    return new Response("Hello, world!");
-  };
-  
