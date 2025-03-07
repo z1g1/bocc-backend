@@ -1,0 +1,5 @@
+[build]
+  functions = "src/functions"
+
+[dev]
+  functions = "src/functions"
