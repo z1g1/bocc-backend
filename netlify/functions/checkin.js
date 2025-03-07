@@ -1,4 +1,4 @@
-//const Airtable = require('airtable');
+const Airtable = require('airtable');
 const { fetchAttendeeByEmail, createAttendee, createCheckin } = require('./utils/airtable');
 
 exports.handler = async (event) => {
