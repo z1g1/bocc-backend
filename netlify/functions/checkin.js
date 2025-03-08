@@ -21,7 +21,9 @@ exports.handler = async (event) => {
 
     const { email } = JSON.parse(event.body);
     console.log('Parsed email:', email);
-
+    const { eventId } = JSON.parse(event.body);
+    console.log('Parsed eventId:', eventId);
+    
     if (!email) {
         console.log('Email is missing in the request');
         return {
@@ -39,6 +41,7 @@ exports.handler = async (event) => {
 
         if (attendee) {
             // Create a new check-in entry for the existing attendee
+            console.log('Creating check-in for existing attendee:', attendee.id);
             await createCheckinEntry(attendee.id);
             console.log('Created check-in for existing attendee:', attendee.id);
         } else {
