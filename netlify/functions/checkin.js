@@ -33,6 +33,7 @@ exports.handler = async (event) => {
 
     try {
         // Check if the attendee exists
+        console.log('Fetching attendee by email:', email);
         const attendee = await fetchAttendeeByEmail(email);
         console.log('Fetched attendee:', attendee);
 

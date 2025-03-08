@@ -30,8 +30,8 @@ const createAttendee = async (email, name) => {
 
 const createCheckinEntry = async (attendeeId) => {
     const record = await base('checkins').create({
-        attendee: [attendeeId],
-        checkinTime: new Date().toISOString()
+        attendee: [attendee],
+        checkinDate: new Date().toISOString()
     });
 
     return record;
