@@ -19,16 +19,19 @@ const fetchAttendeeByEmail = async (email) => {
     return records.length > 0 ? records[0] : null;
 };
 
-const createAttendee = async (email, name) => {
+const createAttendee = async (email, name, phone, businessName, okToEmail) => {
     const record = await base('attendees').create({
         email,
-        name
+        name,
+        phone,
+        businessName,
+        okToEmail
     });
 
     return record;
 };
 
-const createCheckinEntry = async (attendeeId,eventId) => {
+const createCheckinEntry = async (attendeeId, eventId) => {
     const record = await base('checkins').create({
         Attendee: [attendeeId],
         checkinDate: new Date().toISOString(),
