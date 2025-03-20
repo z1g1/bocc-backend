@@ -19,9 +19,14 @@ exports.handler = async (event) => {
         };
     }
 
-    const { email, name, phone, businessName, okToEmail, eventId } = JSON.parse(event.body);
+    const { email, name, phone, businessName, okToEmail, eventId, debug, token } = JSON.parse(event.body);
     console.log('Parsed email:', email);
     console.log('Parsed eventId:', eventId);
+    console.log('Parsed debug:', debug);
+    console.log('Parsed token:', token);
+
+    const debugFlag = debug === 1 ? true : debug === 0 ? false : '';
+    const tokenValue = token || '';
 
     if (!email) {
         console.log('Email is missing in the request');
@@ -41,12 +46,12 @@ exports.handler = async (event) => {
         if (attendee) {
             // Create a new check-in entry for the existing attendee
             console.log('Creating check-in for existing attendee:', attendee.id);
-            await createCheckinEntry(attendee.id, eventId);
+            await createCheckinEntry(attendee.id, eventId, debugFlag, tokenValue);
             console.log('Created check-in for existing attendee:', attendee.id);
         } else {
             // Create a new attendee and then create a check-in entry
-            const newAttendee = await createAttendee(email, name, phone, businessName, okToEmail);
-            await createCheckinEntry(newAttendee.id, eventId);
+            const newAttendee = await createAttendee(email, name, phone, businessName, okToEmail, debugFlag);
+            await createCheckinEntry(newAttendee.id, eventId, debugFlag, tokenValue);
             console.log('Created new attendee and check-in:', newAttendee.id);
         }
 
