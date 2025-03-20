@@ -25,7 +25,7 @@ exports.handler = async (event) => {
     console.log('Parsed debug:', debug);
     console.log('Parsed token:', token);
 
-    const debugFlag = debug === 1 ? true : debug === 0 ? false : '';
+    const debugFlag = debug === 1 ? true : debug === 0 ? false : false;
     const tokenValue = token || '';
 
     if (!email) {
