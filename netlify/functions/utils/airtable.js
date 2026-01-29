@@ -1,4 +1,5 @@
 const Airtable = require('airtable');
+const { escapeAirtableFormula, isValidEmail } = require('./validation');
 
 console.log('Airtable API Key:', process.env.AIRTABLE_API_KEY ? 'Exists' : 'Not set');
 console.log('Airtable Base ID:', process.env.AIRTABLE_BASE_ID ? 'Exists' : 'Not set');
@@ -11,8 +12,9 @@ Airtable.configure({
 const base = Airtable.base(process.env.AIRTABLE_BASE_ID);
 
 const fetchAttendeeByEmail = async (email) => {
+    const sanitizedEmail = escapeAirtableFormula(email);
     const records = await base('attendees').select({
-        filterByFormula: `{email} = '${email}'`,
+        filterByFormula: `{email} = '${sanitizedEmail}'`,
         maxRecords: 1
     }).firstPage();
 
@@ -47,5 +49,7 @@ const createCheckinEntry = async (attendeeId, eventId, debug, token) => {
 module.exports = {
     fetchAttendeeByEmail,
     createAttendee,
-    createCheckinEntry
+    createCheckinEntry,
+    escapeAirtableFormula,
+    isValidEmail
 };

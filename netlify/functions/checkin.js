@@ -1,5 +1,6 @@
 const Airtable = require('airtable');
 const { fetchAttendeeByEmail, createAttendee, createCheckinEntry } = require('./utils/airtable');
+const { isValidEmail } = require('./utils/validation');
 
 exports.handler = async (event) => {
     console.log('Received event:', event);
@@ -34,6 +35,15 @@ exports.handler = async (event) => {
             statusCode: 400,
             headers,
             body: JSON.stringify({ message: 'Email is required' }),
+        };
+    }
+
+    if (!isValidEmail(email)) {
+        console.log('Invalid email format:', email);
+        return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({ message: 'Invalid email format' }),
         };
     }
 
