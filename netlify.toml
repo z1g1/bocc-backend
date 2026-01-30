@@ -1,6 +1,13 @@
+# Netlify configuration
+# Note: CORS headers for the API are handled in the function code (checkin.js)
+# to allow environment-based configuration. These headers are kept for static assets.
+
 [[headers]]
   for = "/*"
   [headers.values]
-    Access-Control-Allow-Origin = "http://127.0.0.1"
     Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
     Access-Control-Allow-Headers = "Content-Type, Authorization"
+
+# Environment variables to configure:
+# ALLOWED_ORIGIN - Set to your frontend domain in production (e.g., "https://bocc-website.netlify.app")
+#                  Defaults to "*" for development if not set
