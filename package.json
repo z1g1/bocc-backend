@@ -6,6 +6,8 @@
     "jest": "^29.7.0"
   },
   "scripts": {
-    "test": "jest"
+    "test": "jest",
+    "test:smoke-local": "bash tests/start-local-test.sh",
+    "test:smoke-prod": "API_URL=https://bocc-backend.netlify.app/.netlify/functions/checkin bash tests/smoke-test.sh"
   }
 }
