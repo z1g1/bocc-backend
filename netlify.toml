@@ -13,7 +13,6 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
-  included_files = ["!**/*.test.js"]
 
 # Environment variables to configure:
 # ALLOWED_ORIGIN - Set to your frontend domain in production (e.g., "https://bocc-website.netlify.app")

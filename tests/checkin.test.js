@@ -1,12 +1,12 @@
 // Mock the airtable module before requiring checkin
-jest.mock('./utils/airtable', () => ({
+jest.mock('../netlify/functions/utils/airtable', () => ({
     fetchAttendeeByEmail: jest.fn(),
     createAttendee: jest.fn(),
     createCheckinEntry: jest.fn()
 }));
 
-const { handler } = require('./checkin');
-const { fetchAttendeeByEmail, createAttendee, createCheckinEntry } = require('./utils/airtable');
+const { handler } = require('../netlify/functions/checkin');
+const { fetchAttendeeByEmail, createAttendee, createCheckinEntry } = require('../netlify/functions/utils/airtable');
 
 describe('checkin handler', () => {
     beforeEach(() => {

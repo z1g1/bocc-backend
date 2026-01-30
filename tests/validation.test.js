@@ -6,7 +6,7 @@ const {
     isValidEventId,
     isValidToken,
     validateCheckinInput
-} = require('./validation');
+} = require('../netlify/functions/utils/validation');
 
 describe('escapeAirtableFormula', () => {
     describe('handles valid inputs', () => {
