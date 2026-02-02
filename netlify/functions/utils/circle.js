@@ -85,6 +85,56 @@ const createMember = async (email, name) => {
 };
 
 /**
+ * Update a member's custom field
+ * @param {number|string} memberId - Circle member ID
+ * @param {string} fieldName - Custom field name (e.g., 'checkinCount')
+ * @param {any} value - Value to set
+ * @returns {Promise<object>} Updated member object
+ */
+const updateMemberCustomField = async (memberId, fieldName, value) => {
+    try {
+        console.log(`Updating Circle member ${memberId} custom field ${fieldName}:`, value);
+
+        const response = await circleApi.patch(`/community_members/${memberId}`, {
+            custom_fields_attributes: {
+                [fieldName]: value
+            }
+        });
+
+        console.log('Successfully updated member custom field:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('Error updating member custom field:', error.message);
+        if (error.response) {
+            console.error('Response status:', error.response.status);
+            console.error('Response data:', error.response.data);
+        }
+        throw error;
+    }
+};
+
+/**
+ * Increment a member's check-in counter
+ * @param {number|string} memberId - Circle member ID
+ * @param {number} currentCount - Current check-in count (optional, fetches if not provided)
+ * @returns {Promise<object>} Updated member object
+ */
+const incrementCheckinCount = async (memberId, currentCount = null) => {
+    try {
+        console.log('Incrementing check-in count for Circle member:', memberId);
+
+        // If current count not provided, we'll increment by 1 from whatever exists
+        // Circle.so might handle this automatically, or we may need to fetch first
+        const newCount = currentCount !== null ? currentCount + 1 : 1;
+
+        return await updateMemberCustomField(memberId, 'checkinCount', newCount);
+    } catch (error) {
+        console.error('Error incrementing check-in count:', error.message);
+        throw error;
+    }
+};
+
+/**
  * Create or update a community member (finds existing first)
  * @param {string} email - Member email address
  * @param {string} name - Member name
@@ -107,5 +157,7 @@ const ensureMember = async (email, name) => {
 module.exports = {
     findMemberByEmail,
     createMember,
+    updateMemberCustomField,
+    incrementCheckinCount,
     ensureMember
 };
