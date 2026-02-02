@@ -1,4 +1,4 @@
-const { fetchAttendeeByEmail, createAttendee, createCheckinEntry } = require('./utils/airtable');
+const { fetchAttendeeByEmail, createAttendee, createCheckinEntry, findExistingCheckin } = require('./utils/airtable');
 const { validateCheckinInput } = require('./utils/validation');
 
 // CORS configuration - use environment variable for production security
@@ -54,19 +54,14 @@ exports.handler = async (event) => {
     }
 
     try {
-        // Check if the attendee exists
+        // Check if the attendee exists (fetch or create)
         console.log('Fetching attendee by email:', sanitized.email);
-        const attendee = await fetchAttendeeByEmail(sanitized.email);
-        console.log('Fetched attendee:', attendee);
+        let attendee = await fetchAttendeeByEmail(sanitized.email);
 
-        if (attendee) {
-            // Create a new check-in entry for the existing attendee
-            console.log('Creating check-in for existing attendee:', attendee.id);
-            await createCheckinEntry(attendee.id, sanitized.eventId, sanitized.debug, sanitized.token);
-            console.log('Created check-in for existing attendee:', attendee.id);
-        } else {
-            // Create a new attendee and then create a check-in entry
-            const newAttendee = await createAttendee(
+        if (!attendee) {
+            // Create a new attendee
+            console.log('Creating new attendee:', sanitized.email);
+            attendee = await createAttendee(
                 sanitized.email,
                 sanitized.name,
                 sanitized.phone,
@@ -74,9 +69,33 @@ exports.handler = async (event) => {
                 sanitized.okToEmail,
                 sanitized.debug
             );
-            await createCheckinEntry(newAttendee.id, sanitized.eventId, sanitized.debug, sanitized.token);
-            console.log('Created new attendee and check-in:', newAttendee.id);
+            console.log('Created new attendee:', attendee.id);
+        } else {
+            console.log('Found existing attendee:', attendee.id);
         }
+
+        // Check for duplicate check-in on the same day
+        console.log('Checking for existing check-in today:', attendee.id, sanitized.eventId, sanitized.token);
+        const existingCheckin = await findExistingCheckin(attendee.id, sanitized.eventId, sanitized.token);
+
+        if (existingCheckin) {
+            console.log('Duplicate check-in prevented:', sanitized.email, sanitized.eventId);
+            return {
+                statusCode: 200,
+                headers,
+                body: JSON.stringify({
+                    message: 'Already checked in for this event today',
+                    alreadyCheckedIn: true,
+                    checkinDate: existingCheckin.get('checkinDate')
+                }),
+            };
+        }
+
+        // Create the check-in entry
+        console.log('Creating check-in for attendee:', attendee.id);
+        await createCheckinEntry(attendee.id, sanitized.eventId, sanitized.debug, sanitized.token);
+        console.log('Created check-in successfully');
+
 
         return {
             statusCode: 200,
