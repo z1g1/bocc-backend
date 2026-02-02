@@ -53,22 +53,39 @@ const findExistingCheckin = async (attendeeId, eventId, token) => {
     // Get today's date in YYYY-MM-DD format for comparison
     const today = new Date().toISOString().split('T')[0];
 
-    // Airtable formula to match attendeeId, eventId, token, and same calendar day
-    // Note: RECORD_ID() returns the linked attendee record ID
+    // Query for check-ins matching eventId, token, and date
+    // Then filter by attendeeId in code since Airtable formulas with linked records are tricky
     const formula = `AND(
-        FIND('${attendeeId}', ARRAYJOIN({Attendee})),
         {eventId} = '${sanitizedEventId}',
         {token} = '${sanitizedToken}',
         DATESTR({checkinDate}) = '${today}'
     )`;
 
+    console.log('Finding existing check-in with formula:', formula);
+    console.log('Looking for attendeeId:', attendeeId);
+
     const records = await base('checkins').select({
         filterByFormula: formula,
-        maxRecords: 1,
         sort: [{field: 'checkinDate', direction: 'desc'}]
     }).firstPage();
 
-    return records.length > 0 ? records[0] : null;
+    console.log('Found', records.length, 'records matching event/token/date');
+
+    // Filter by attendeeId in code
+    const matchingRecord = records.find(record => {
+        const attendeeField = record.get('Attendee');
+        console.log('Checking record', record.id, 'attendee field:', attendeeField);
+        // Attendee field is an array of record IDs
+        return attendeeField && attendeeField.includes(attendeeId);
+    });
+
+    if (matchingRecord) {
+        console.log('Existing check-in found:', matchingRecord.id);
+    } else {
+        console.log('No matching check-in found for this attendee');
+    }
+
+    return matchingRecord || null;
 };
 
 module.exports = {
