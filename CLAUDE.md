@@ -14,11 +14,14 @@ This is a Netlify Functions backend API for Buffalo Open Coffee Club (BOCC) that
 
 ### Core Workflow
 1. Check-in form sends attendee data (email, name, phone, businessName, okToEmail) + eventID + debug flag + token
-2. API checks if attendee email exists in Airtable `attendees` table
-3. If exists: create new check-in record in `checkins` table
-4. If not exists: create attendee record first, then create check-in record
-5. All records include `debug` flag for filtering test submissions
-6. All check-ins include `token` field (static GUID per event, embedded in URL for basic anti-spoofing)
+2. API checks for duplicate check-in (same attendee, event, token, and date)
+3. If duplicate found: return friendly message "Already checked in for this event today"
+4. API checks if attendee email exists in Airtable `attendees` table
+5. If exists: fetch attendee record; If not exists: create new attendee record
+6. Create check-in record in `checkins` table with attendee link, eventId, token, and timestamp
+7. For non-debug check-ins: Invite attendee to Circle.so community (non-blocking, background operation)
+8. All records include `debug` flag for filtering test submissions
+9. All check-ins include `token` field (static GUID per event, embedded in URL for basic anti-spoofing)
 
 ## Architecture
 
@@ -35,6 +38,13 @@ This is a Netlify Functions backend API for Buffalo Open Coffee Club (BOCC) that
 - `checkins` table: Stores individual check-in events
   - Fields: id, checkinDate, eventId, Attendee (linked), email, name, phone, businessName, token, debug
   - `eventId` examples: "bocc" (regular meetings), "codeCoffee", or other event identifiers
+
+**Community Platform:** Circle.so
+- Third-party community platform for member engagement
+- Attendees are automatically invited after successful check-in
+- Invitations are non-blocking (don't fail check-in if Circle API fails)
+- Only non-debug check-ins trigger Circle invitations
+- API v2 integration via `netlify/functions/utils/circle.js`
 
 **Module System:** CommonJS (require/module.exports)
 - Project uses CommonJS syntax, not ES modules
@@ -54,11 +64,15 @@ This is a Netlify Functions backend API for Buffalo Open Coffee Club (BOCC) that
 Required environment variables (set in Netlify dashboard):
 - `AIRTABLE_API_KEY` - Airtable API key for authentication
 - `AIRTABLE_BASE_ID` - Base ID for the BOCC Airtable database
+- `CIRCLE_API_TOKEN` - Circle.so Admin API v2 token for member invitations
 
 Optional environment variables:
 - `ALLOWED_ORIGIN` - CORS allowed origin (defaults to `*` for development, set to frontend domain in production)
 
-**Security Note:** This project uses Airtable API keys. Follow principle of least privilege - ensure API key has minimum required permissions for read/write on `attendees` and `checkins` tables only.
+**Security Note:** This project uses API keys for Airtable and Circle.so. Follow principle of least privilege:
+- Airtable key: minimum required permissions for read/write on `attendees` and `checkins` tables only
+- Circle.so key: minimum required permissions for creating/reading community members only
+- See `CIRCLE_PERMISSIONS.md` for detailed Circle.so permissions documentation
 
 ## Project Structure
 
@@ -69,14 +83,19 @@ bocc-backend/
 │       ├── checkin.js           # Main API endpoint handler
 │       └── utils/
 │           ├── airtable.js      # Airtable client and database operations
+│           ├── circle.js        # Circle.so API client (Admin API v2)
 │           └── validation.js    # Input validation and sanitization utilities
 ├── tests/
 │   ├── checkin.test.js          # Unit tests for checkin handler
+│   ├── circle.test.js           # Unit tests for Circle.so API integration
+│   ├── deduplication.test.js    # Unit tests for duplicate check-in detection
 │   ├── validation.test.js       # Unit tests for validation utilities
-│   ├── smoke-test.sh            # End-to-end API smoke test script
+│   ├── smoke-test.sh            # End-to-end API smoke test script (includes dedup test)
+│   ├── manual-dedup-test.sh     # Manual testing script for deduplication scenarios
 │   └── start-local-test.sh      # Automated local testing script
 ├── netlify.toml                 # Netlify configuration (CORS headers)
-├── package.json                 # Dependencies (airtable SDK, jest)
+├── package.json                 # Dependencies (airtable SDK, axios, jest)
+├── CIRCLE_PERMISSIONS.md        # Circle.so API permissions documentation
 └── README.md                    # Project documentation
 ```
 
@@ -101,10 +120,10 @@ netlify dev
 
 **Testing:**
 ```bash
-# Run Jest unit tests (124 tests covering validation and checkin handler)
+# Run Jest unit tests (143 tests covering validation, checkin, deduplication, and Circle.so)
 npm test
 
-# Run automated local smoke test (starts server, tests API, cleans up)
+# Run automated local smoke test (starts server, tests API with dedup, cleans up)
 npm run test:smoke-local
 
 # Run production smoke test (tests deployed API with debug flag)
@@ -112,6 +131,9 @@ npm run test:smoke-prod
 
 # Manual smoke test (requires Netlify dev running in another terminal)
 API_URL=http://localhost:8888/.netlify/functions/checkin bash tests/smoke-test.sh
+
+# Manual deduplication testing (5 test scenarios)
+API_URL=http://localhost:8888/.netlify/functions/checkin bash tests/manual-dedup-test.sh
 ```
 
 **Testing the API:**
@@ -161,6 +183,16 @@ All database operations are in `netlify/functions/utils/airtable.js`:
 - `fetchAttendeeByEmail(email)` - Query attendee by email (uses formula injection protection)
 - `createAttendee(email, name, phone, businessName, okToEmail, debug)` - Create new attendee
 - `createCheckinEntry(attendeeId, eventId, debug, token)` - Create check-in record
+- `findExistingCheckin(attendeeId, eventId, token)` - Check for duplicate check-in on same day (returns existing check-in or null)
+
+**Circle.so API Operations:**
+All Circle.so API operations are in `netlify/functions/utils/circle.js`:
+- `findMemberByEmail(email)` - Search for Circle member by email (case-insensitive)
+- `createMember(email, name)` - Create/invite new Circle community member
+- `ensureMember(email, name)` - Find existing or create new member (idempotent operation)
+- Uses Admin API v2 at `https://app.circle.so/api/admin/v2`
+- Authentication: Bearer token via `CIRCLE_API_TOKEN` environment variable
+- All operations include comprehensive error handling and logging
 
 **Input Validation:**
 All validation functions are in `netlify/functions/utils/validation.js`:

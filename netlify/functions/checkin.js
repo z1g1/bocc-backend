@@ -1,5 +1,6 @@
 const { fetchAttendeeByEmail, createAttendee, createCheckinEntry, findExistingCheckin } = require('./utils/airtable');
 const { validateCheckinInput } = require('./utils/validation');
+const { ensureMember } = require('./utils/circle');
 
 // CORS configuration - use environment variable for production security
 // Set ALLOWED_ORIGIN in Netlify environment variables to your frontend domain
@@ -96,6 +97,23 @@ exports.handler = async (event) => {
         await createCheckinEntry(attendee.id, sanitized.eventId, sanitized.debug, sanitized.token);
         console.log('Created check-in successfully');
 
+        // Invite attendee to Circle.so community (non-blocking)
+        // Only invite for non-debug check-ins
+        if (!sanitized.debug || sanitized.debug === '0') {
+            console.log('Inviting attendee to Circle.so:', sanitized.email);
+
+            // Use Promise to run invitation in background (non-blocking)
+            ensureMember(sanitized.email, sanitized.name)
+                .then(member => {
+                    console.log('Successfully ensured Circle member:', member.id || member.email);
+                })
+                .catch(error => {
+                    // Log error but don't fail the check-in
+                    console.error('Failed to invite to Circle.so (non-blocking):', error.message);
+                });
+        } else {
+            console.log('Skipping Circle invitation for debug check-in');
+        }
 
         return {
             statusCode: 200,
