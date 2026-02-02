@@ -1,4 +1,4 @@
-const { fetchAttendeeByEmail, createAttendee, createCheckinEntry } = require('./utils/airtable');
+const { fetchAttendeeByEmail, createAttendee, createCheckinEntry, findExistingCheckin } = require('./utils/airtable');
 const { validateCheckinInput } = require('./utils/validation');
 
 // CORS configuration - use environment variable for production security
@@ -54,6 +54,23 @@ exports.handler = async (event) => {
     }
 
     try {
+        // Check for duplicate check-in on the same day
+        console.log('Checking for existing check-in today:', sanitized.email, sanitized.eventId, sanitized.token);
+        const existingCheckin = await findExistingCheckin(sanitized.email, sanitized.eventId, sanitized.token);
+
+        if (existingCheckin) {
+            console.log('Duplicate check-in prevented:', sanitized.email, sanitized.eventId);
+            return {
+                statusCode: 200,
+                headers,
+                body: JSON.stringify({
+                    message: 'Already checked in for this event today',
+                    alreadyCheckedIn: true,
+                    checkinDate: existingCheckin.get('checkinDate')
+                }),
+            };
+        }
+
         // Check if the attendee exists
         console.log('Fetching attendee by email:', sanitized.email);
         const attendee = await fetchAttendeeByEmail(sanitized.email);
