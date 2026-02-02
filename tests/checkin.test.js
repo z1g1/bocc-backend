@@ -2,15 +2,23 @@
 jest.mock('../netlify/functions/utils/airtable', () => ({
     fetchAttendeeByEmail: jest.fn(),
     createAttendee: jest.fn(),
-    createCheckinEntry: jest.fn()
+    createCheckinEntry: jest.fn(),
+    findExistingCheckin: jest.fn()
+}));
+
+// Mock the circle module
+jest.mock('../netlify/functions/utils/circle', () => ({
+    ensureMember: jest.fn().mockResolvedValue({ id: 'circle123' })
 }));
 
 const { handler } = require('../netlify/functions/checkin');
-const { fetchAttendeeByEmail, createAttendee, createCheckinEntry } = require('../netlify/functions/utils/airtable');
+const { fetchAttendeeByEmail, createAttendee, createCheckinEntry, findExistingCheckin } = require('../netlify/functions/utils/airtable');
 
 describe('checkin handler', () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        // Default: no duplicate check-in
+        findExistingCheckin.mockResolvedValue(null);
     });
 
     const createEvent = (body, method = 'POST') => ({
@@ -173,6 +181,7 @@ describe('checkin handler', () => {
         it('should create checkin for existing attendee', async () => {
             const existingAttendee = { id: 'rec123' };
             fetchAttendeeByEmail.mockResolvedValue(existingAttendee);
+            findExistingCheckin.mockResolvedValue(null); // No duplicate
             createCheckinEntry.mockResolvedValue({ id: 'checkin123' });
 
             const event = createEvent({
@@ -194,6 +203,7 @@ describe('checkin handler', () => {
         it('should create new attendee and checkin when attendee does not exist', async () => {
             fetchAttendeeByEmail.mockResolvedValue(null);
             createAttendee.mockResolvedValue({ id: 'newrec123' });
+            findExistingCheckin.mockResolvedValue(null); // No duplicate
             createCheckinEntry.mockResolvedValue({ id: 'checkin123' });
 
             const event = createEvent({
