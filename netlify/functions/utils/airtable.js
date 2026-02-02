@@ -46,17 +46,17 @@ const createCheckinEntry = async (attendeeId, eventId, debug, token) => {
     return record;
 };
 
-const findExistingCheckin = async (email, eventId, token) => {
-    const sanitizedEmail = escapeAirtableFormula(email);
+const findExistingCheckin = async (attendeeId, eventId, token) => {
     const sanitizedEventId = escapeAirtableFormula(eventId);
     const sanitizedToken = escapeAirtableFormula(token);
 
     // Get today's date in YYYY-MM-DD format for comparison
     const today = new Date().toISOString().split('T')[0];
 
-    // Airtable formula to match email, eventId, token, and same calendar day
+    // Airtable formula to match attendeeId, eventId, token, and same calendar day
+    // Note: RECORD_ID() returns the linked attendee record ID
     const formula = `AND(
-        LOWER({email}) = '${sanitizedEmail.toLowerCase()}',
+        FIND('${attendeeId}', ARRAYJOIN({Attendee})),
         {eventId} = '${sanitizedEventId}',
         {token} = '${sanitizedToken}',
         DATESTR({checkinDate}) = '${today}'

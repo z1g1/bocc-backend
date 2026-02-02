@@ -54,9 +54,29 @@ exports.handler = async (event) => {
     }
 
     try {
+        // Check if the attendee exists (fetch or create)
+        console.log('Fetching attendee by email:', sanitized.email);
+        let attendee = await fetchAttendeeByEmail(sanitized.email);
+
+        if (!attendee) {
+            // Create a new attendee
+            console.log('Creating new attendee:', sanitized.email);
+            attendee = await createAttendee(
+                sanitized.email,
+                sanitized.name,
+                sanitized.phone,
+                sanitized.businessName,
+                sanitized.okToEmail,
+                sanitized.debug
+            );
+            console.log('Created new attendee:', attendee.id);
+        } else {
+            console.log('Found existing attendee:', attendee.id);
+        }
+
         // Check for duplicate check-in on the same day
-        console.log('Checking for existing check-in today:', sanitized.email, sanitized.eventId, sanitized.token);
-        const existingCheckin = await findExistingCheckin(sanitized.email, sanitized.eventId, sanitized.token);
+        console.log('Checking for existing check-in today:', attendee.id, sanitized.eventId, sanitized.token);
+        const existingCheckin = await findExistingCheckin(attendee.id, sanitized.eventId, sanitized.token);
 
         if (existingCheckin) {
             console.log('Duplicate check-in prevented:', sanitized.email, sanitized.eventId);
@@ -71,29 +91,11 @@ exports.handler = async (event) => {
             };
         }
 
-        // Check if the attendee exists
-        console.log('Fetching attendee by email:', sanitized.email);
-        const attendee = await fetchAttendeeByEmail(sanitized.email);
-        console.log('Fetched attendee:', attendee);
+        // Create the check-in entry
+        console.log('Creating check-in for attendee:', attendee.id);
+        await createCheckinEntry(attendee.id, sanitized.eventId, sanitized.debug, sanitized.token);
+        console.log('Created check-in successfully');
 
-        if (attendee) {
-            // Create a new check-in entry for the existing attendee
-            console.log('Creating check-in for existing attendee:', attendee.id);
-            await createCheckinEntry(attendee.id, sanitized.eventId, sanitized.debug, sanitized.token);
-            console.log('Created check-in for existing attendee:', attendee.id);
-        } else {
-            // Create a new attendee and then create a check-in entry
-            const newAttendee = await createAttendee(
-                sanitized.email,
-                sanitized.name,
-                sanitized.phone,
-                sanitized.businessName,
-                sanitized.okToEmail,
-                sanitized.debug
-            );
-            await createCheckinEntry(newAttendee.id, sanitized.eventId, sanitized.debug, sanitized.token);
-            console.log('Created new attendee and check-in:', newAttendee.id);
-        }
 
         return {
             statusCode: 200,

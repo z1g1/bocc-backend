@@ -40,11 +40,23 @@ This is a Netlify Functions backend API for Buffalo Open Coffee Club (BOCC) that
 - Project uses CommonJS syntax, not ES modules
 - All files use `.js` extension with `require()` and `module.exports`
 
+**Security Architecture:**
+- Input validation layer in `netlify/functions/utils/validation.js`
+- All inputs are validated and sanitized before processing
+- Formula injection protection for Airtable queries
+- XSS prevention through text sanitization
+- Email format validation with dangerous character rejection
+- Phone number format validation (optional field)
+- Token format validation (alphanumeric + hyphens only)
+
 ## Environment Variables
 
 Required environment variables (set in Netlify dashboard):
 - `AIRTABLE_API_KEY` - Airtable API key for authentication
 - `AIRTABLE_BASE_ID` - Base ID for the BOCC Airtable database
+
+Optional environment variables:
+- `ALLOWED_ORIGIN` - CORS allowed origin (defaults to `*` for development, set to frontend domain in production)
 
 **Security Note:** This project uses Airtable API keys. Follow principle of least privilege - ensure API key has minimum required permissions for read/write on `attendees` and `checkins` tables only.
 
@@ -56,9 +68,15 @@ bocc-backend/
 │   └── functions/
 │       ├── checkin.js           # Main API endpoint handler
 │       └── utils/
-│           └── airtable.js      # Airtable client and database operations
+│           ├── airtable.js      # Airtable client and database operations
+│           └── validation.js    # Input validation and sanitization utilities
+├── tests/
+│   ├── checkin.test.js          # Unit tests for checkin handler
+│   ├── validation.test.js       # Unit tests for validation utilities
+│   ├── smoke-test.sh            # End-to-end API smoke test script
+│   └── start-local-test.sh      # Automated local testing script
 ├── netlify.toml                 # Netlify configuration (CORS headers)
-├── package.json                 # Dependencies (airtable SDK)
+├── package.json                 # Dependencies (airtable SDK, jest)
 └── README.md                    # Project documentation
 ```
 
@@ -69,7 +87,7 @@ bocc-backend/
 - Netlify auto-deploys on every push to main
 - **TODO:** Implement dev/staging/main workflow for safer deployments
 
-**Local Testing:**
+**Local Development:**
 ```bash
 # Install Netlify CLI globally if not already installed
 npm install -g netlify-cli
@@ -79,6 +97,21 @@ npm install
 
 # Run functions locally with environment variables
 netlify dev
+```
+
+**Testing:**
+```bash
+# Run Jest unit tests (124 tests covering validation and checkin handler)
+npm test
+
+# Run automated local smoke test (starts server, tests API, cleans up)
+npm run test:smoke-local
+
+# Run production smoke test (tests deployed API with debug flag)
+npm run test:smoke-prod
+
+# Manual smoke test (requires Netlify dev running in another terminal)
+API_URL=http://localhost:8888/.netlify/functions/checkin bash tests/smoke-test.sh
 ```
 
 **Testing the API:**
@@ -125,31 +158,47 @@ curl -X POST https://bocc-backend.netlify.app/.netlify/functions/checkin \
 
 **Airtable Operations:**
 All database operations are in `netlify/functions/utils/airtable.js`:
-- `fetchAttendeeByEmail(email)` - Query attendee by email
+- `fetchAttendeeByEmail(email)` - Query attendee by email (uses formula injection protection)
 - `createAttendee(email, name, phone, businessName, okToEmail, debug)` - Create new attendee
 - `createCheckinEntry(attendeeId, eventId, debug, token)` - Create check-in record
+
+**Input Validation:**
+All validation functions are in `netlify/functions/utils/validation.js`:
+- `validateCheckinInput(input)` - Main validation function, returns `{ isValid, errors, sanitized }`
+- `escapeAirtableFormula(value)` - Escapes dangerous characters for Airtable formula queries
+- `isValidEmail(email)` - RFC 5322 compliant email validation with security checks
+- `isValidPhone(phone)` - Phone number format validation (optional field)
+- `isValidEventId(eventId)` - Ensures eventId is non-empty string
+- `isValidToken(token)` - Validates token format (alphanumeric + hyphens)
+- `sanitizeText(text)` - Removes HTML tags, scripts, and XSS-prone characters
 
 **CORS Handling:**
 - Configured in `netlify.toml` for global headers
 - OPTIONS preflight handled in `checkin.js` handler
-- Currently allows all origins (`*`) - consider restricting in production
+- Dynamically configured via `ALLOWED_ORIGIN` environment variable (defaults to `*` for development)
+- Set `ALLOWED_ORIGIN` to frontend domain in production for security
 
 **Error Handling:**
-- 400: Missing required fields (email)
+- 400: Missing required fields (email, eventId) or validation failures (invalid email/phone format)
 - 500: Airtable API errors or internal failures
 - Errors logged to console (visible in Netlify function logs)
+- Generic error messages returned to client (Issue #7: sanitized error responses for security)
 
 ## Common Tasks
 
 **Adding new fields to attendee:**
 1. Add field to Airtable `attendees` table schema
-2. Update `createAttendee()` in `netlify/functions/utils/airtable.js`
-3. Update request parsing in `netlify/functions/checkin.js`
+2. Add validation function to `netlify/functions/utils/validation.js` if needed
+3. Update `validateCheckinInput()` to validate/sanitize the new field
+4. Update `createAttendee()` in `netlify/functions/utils/airtable.js`
+5. Add unit tests to `tests/validation.test.js` and `tests/checkin.test.js`
 
 **Adding new fields to check-in:**
 1. Add field to Airtable `checkins` table schema
-2. Update `createCheckinEntry()` in `netlify/functions/utils/airtable.js`
-3. Update request parsing in `netlify/functions/checkin.js`
+2. Add validation function to `netlify/functions/utils/validation.js` if needed
+3. Update `validateCheckinInput()` to validate/sanitize the new field
+4. Update `createCheckinEntry()` in `netlify/functions/utils/airtable.js`
+5. Add unit tests to `tests/validation.test.js` and `tests/checkin.test.js`
 
 **Debugging production issues:**
 1. Check Netlify function logs in Netlify dashboard
@@ -160,16 +209,31 @@ All database operations are in `netlify/functions/utils/airtable.js`:
 ## Known Limitations & Future Improvements
 
 From README.md, planned improvements include:
-- Add validation for email format and phone number format
+- ~~Add validation for email format and phone number format~~ ✅ Completed
 - Display check-in confirmation back to user with edit option
 - Add privacy policy and data deletion capability
 - Implement proper dev/staging/main branch workflow instead of pushing directly to production
 
 ## Testing Strategy
 
+**Unit Tests:**
+- 124+ Jest tests covering validation utilities and checkin handler
+- Run with `npm test`
+- Tests include edge cases, security scenarios, and error handling
+- Located in `tests/validation.test.js` and `tests/checkin.test.js`
+
+**Smoke Tests:**
+- End-to-end tests that verify API functionality with real HTTP requests
+- Automated local testing: `npm run test:smoke-local` (starts server, tests, cleans up)
+- Production testing: `npm run test:smoke-prod` (tests deployed API with debug flag)
+- All smoke tests use `debug: "1"` to mark as test data
+
+**Best Practices:**
 - Use `debug: "1"` flag for all test submissions
 - Filter Airtable views to exclude debug records for production analytics
 - Token field provides basic anti-spoofing for QR code check-ins
+- Run unit tests before committing changes
+- Run smoke tests after deployment to verify API health
 - Currently all changes push directly to production - test thoroughly locally before pushing
 
 ## Frontend Integration
