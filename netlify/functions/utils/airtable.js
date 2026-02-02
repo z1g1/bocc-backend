@@ -46,10 +46,36 @@ const createCheckinEntry = async (attendeeId, eventId, debug, token) => {
     return record;
 };
 
+const findExistingCheckin = async (email, eventId, token) => {
+    const sanitizedEmail = escapeAirtableFormula(email);
+    const sanitizedEventId = escapeAirtableFormula(eventId);
+    const sanitizedToken = escapeAirtableFormula(token);
+
+    // Get today's date in YYYY-MM-DD format for comparison
+    const today = new Date().toISOString().split('T')[0];
+
+    // Airtable formula to match email, eventId, token, and same calendar day
+    const formula = `AND(
+        LOWER({email}) = '${sanitizedEmail.toLowerCase()}',
+        {eventId} = '${sanitizedEventId}',
+        {token} = '${sanitizedToken}',
+        DATESTR({checkinDate}) = '${today}'
+    )`;
+
+    const records = await base('checkins').select({
+        filterByFormula: formula,
+        maxRecords: 1,
+        sort: [{field: 'checkinDate', direction: 'desc'}]
+    }).firstPage();
+
+    return records.length > 0 ? records[0] : null;
+};
+
 module.exports = {
     fetchAttendeeByEmail,
     createAttendee,
     createCheckinEntry,
+    findExistingCheckin,
     escapeAirtableFormula,
     isValidEmail
 };
