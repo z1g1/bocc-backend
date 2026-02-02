@@ -97,20 +97,23 @@ exports.handler = async (event) => {
         await createCheckinEntry(attendee.id, sanitized.eventId, sanitized.debug, sanitized.token);
         console.log('Created check-in successfully');
 
-        // Invite attendee to Circle.so community (non-blocking)
+        // Invite attendee to Circle.so community
         // Only invite for non-debug check-ins
         if (!sanitized.debug || sanitized.debug === '0') {
             console.log('Inviting attendee to Circle.so:', sanitized.email);
 
-            // Use Promise to run invitation in background (non-blocking)
-            ensureMember(sanitized.email, sanitized.name)
-                .then(member => {
-                    console.log('Successfully ensured Circle member:', member.id || member.email);
-                })
-                .catch(error => {
-                    // Log error but don't fail the check-in
-                    console.error('Failed to invite to Circle.so (non-blocking):', error.message);
-                });
+            try {
+                // Await the invitation to ensure it completes
+                const member = await ensureMember(sanitized.email, sanitized.name);
+                console.log('Successfully ensured Circle member:', member.id || member.email);
+            } catch (error) {
+                // Log error but don't fail the check-in
+                console.error('Failed to invite to Circle.so (non-blocking):', error.message);
+                if (error.response) {
+                    console.error('Circle API response status:', error.response.status);
+                    console.error('Circle API response data:', JSON.stringify(error.response.data));
+                }
+            }
         } else {
             console.log('Skipping Circle invitation for debug check-in');
         }
