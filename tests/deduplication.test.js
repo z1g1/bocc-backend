@@ -33,7 +33,7 @@ describe('Check-in Deduplication', () => {
         test('returns null when no check-in exists', async () => {
             mockFirstPage.mockResolvedValue([]);
 
-            const result = await findExistingCheckin('test@example.com', 'bocc', 'test-token');
+            const result = await findExistingCheckin('recABC123', 'bocc', 'test-token');
 
             expect(result).toBeNull();
         });
@@ -42,7 +42,7 @@ describe('Check-in Deduplication', () => {
             const mockCheckin = {
                 id: 'rec123',
                 get: jest.fn((field) => {
-                    if (field === 'email') return 'test@example.com';
+                    if (field === 'Attendee') return ['recABC123']; // Linked record field returns array
                     if (field === 'eventId') return 'bocc';
                     if (field === 'token') return 'test-token';
                     if (field === 'checkinDate') return new Date().toISOString();
@@ -51,34 +51,40 @@ describe('Check-in Deduplication', () => {
 
             mockFirstPage.mockResolvedValue([mockCheckin]);
 
-            const result = await findExistingCheckin('test@example.com', 'bocc', 'test-token');
+            const result = await findExistingCheckin('recABC123', 'bocc', 'test-token');
 
             expect(result).toBeTruthy();
             expect(result.id).toBe('rec123');
         });
 
-        test('email comparison is case-insensitive', async () => {
-            const mockCheckin = {
+        test('filters by attendeeId correctly', async () => {
+            const mockCheckin1 = {
                 id: 'rec123',
-                get: jest.fn()
+                get: jest.fn((field) => {
+                    if (field === 'Attendee') return ['recDIFFERENT'];
+                })
+            };
+            const mockCheckin2 = {
+                id: 'rec456',
+                get: jest.fn((field) => {
+                    if (field === 'Attendee') return ['recABC123'];
+                })
             };
 
-            mockFirstPage.mockResolvedValue([mockCheckin]);
+            mockFirstPage.mockResolvedValue([mockCheckin1, mockCheckin2]);
 
-            await findExistingCheckin('Test@Example.com', 'bocc', 'test-token');
+            const result = await findExistingCheckin('recABC123', 'bocc', 'test-token');
 
-            // Verify the formula includes LOWER() for case-insensitive comparison
-            const selectCall = mockSelect.mock.calls[0][0];
-            expect(selectCall.filterByFormula).toContain('LOWER({email})');
-            expect(selectCall.filterByFormula).toContain('test@example.com');
+            expect(result).toBeTruthy();
+            expect(result.id).toBe('rec456'); // Should return the matching one
         });
 
         test('sanitizes inputs to prevent formula injection', async () => {
             mockFirstPage.mockResolvedValue([]);
 
-            await findExistingCheckin("test'@example.com", 'bocc', 'test-token');
+            await findExistingCheckin('recABC123', "bocc'test", 'test-token');
 
-            // Verify the formula escapes single quotes
+            // Verify the formula escapes single quotes in eventId
             const selectCall = mockSelect.mock.calls[0][0];
             expect(selectCall.filterByFormula).toContain("\\'");
         });
@@ -86,7 +92,7 @@ describe('Check-in Deduplication', () => {
         test('filters by same calendar day', async () => {
             mockFirstPage.mockResolvedValue([]);
 
-            await findExistingCheckin('test@example.com', 'bocc', 'test-token');
+            await findExistingCheckin('recABC123', 'bocc', 'test-token');
 
             // Verify the formula uses DATESTR for date comparison
             const selectCall = mockSelect.mock.calls[0][0];
@@ -97,19 +103,20 @@ describe('Check-in Deduplication', () => {
             expect(selectCall.filterByFormula).toContain(today);
         });
 
-        test('limits query to 1 record for performance', async () => {
+        test('queries without maxRecords limit for client-side filtering', async () => {
             mockFirstPage.mockResolvedValue([]);
 
-            await findExistingCheckin('test@example.com', 'bocc', 'test-token');
+            await findExistingCheckin('recABC123', 'bocc', 'test-token');
 
             const selectCall = mockSelect.mock.calls[0][0];
-            expect(selectCall.maxRecords).toBe(1);
+            // maxRecords is not set because we filter client-side
+            expect(selectCall.maxRecords).toBeUndefined();
         });
 
         test('sorts by checkinDate descending to get most recent', async () => {
             mockFirstPage.mockResolvedValue([]);
 
-            await findExistingCheckin('test@example.com', 'bocc', 'test-token');
+            await findExistingCheckin('recABC123', 'bocc', 'test-token');
 
             const selectCall = mockSelect.mock.calls[0][0];
             expect(selectCall.sort).toEqual([{ field: 'checkinDate', direction: 'desc' }]);
@@ -119,7 +126,7 @@ describe('Check-in Deduplication', () => {
             mockFirstPage.mockRejectedValue(new Error('Airtable API error'));
 
             await expect(
-                findExistingCheckin('test@example.com', 'bocc', 'test-token')
+                findExistingCheckin('recABC123', 'bocc', 'test-token')
             ).rejects.toThrow('Airtable API error');
         });
     });
