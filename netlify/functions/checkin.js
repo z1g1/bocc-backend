@@ -1,6 +1,6 @@
 const { fetchAttendeeByEmail, createAttendee, createCheckinEntry, findExistingCheckin } = require('./utils/airtable');
 const { validateCheckinInput } = require('./utils/validation');
-const { ensureMember } = require('./utils/circle');
+const { ensureMember, incrementCheckinCount } = require('./utils/circle');
 
 // CORS configuration - use environment variable for production security
 // Set ALLOWED_ORIGIN in Netlify environment variables to your frontend domain
@@ -97,15 +97,28 @@ exports.handler = async (event) => {
         await createCheckinEntry(attendee.id, sanitized.eventId, sanitized.debug, sanitized.token);
         console.log('Created check-in successfully');
 
-        // Invite attendee to Circle.so community
-        // Only invite for non-debug check-ins
+        // Invite attendee to Circle.so community and increment check-in counter
+        // Only for non-debug check-ins
         if (!sanitized.debug || sanitized.debug === '0') {
             console.log('Inviting attendee to Circle.so:', sanitized.email);
 
             try {
-                // Await the invitation to ensure it completes
+                // Ensure member exists in Circle
                 const member = await ensureMember(sanitized.email, sanitized.name);
                 console.log('Successfully ensured Circle member:', member.id || member.email);
+
+                // Increment check-in counter
+                try {
+                    await incrementCheckinCount(member.id);
+                    console.log('Successfully incremented check-in count for Circle member:', member.id);
+                } catch (counterError) {
+                    // Log counter error but don't fail (custom field might not exist yet)
+                    console.error('Failed to increment check-in count (non-blocking):', counterError.message);
+                    if (counterError.response) {
+                        console.error('Counter update response status:', counterError.response.status);
+                        console.error('Counter update response data:', JSON.stringify(counterError.response.data));
+                    }
+                }
             } catch (error) {
                 // Log error but don't fail the check-in
                 console.error('Failed to invite to Circle.so (non-blocking):', error.message);

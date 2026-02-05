@@ -1,16 +1,18 @@
 // Mock axios before requiring the module
 const mockAxiosGet = jest.fn();
 const mockAxiosPost = jest.fn();
+const mockAxiosDelete = jest.fn();
 const mockAxiosCreate = jest.fn(() => ({
     get: mockAxiosGet,
-    post: mockAxiosPost
+    post: mockAxiosPost,
+    delete: mockAxiosDelete
 }));
 
 jest.mock('axios', () => ({
     create: mockAxiosCreate
 }));
 
-const { findMemberByEmail, createMember, ensureMember } = require('../netlify/functions/utils/circle');
+const { findMemberByEmail, createMember, ensureMember, deactivateMember } = require('../netlify/functions/utils/circle');
 
 describe('Circle.so API Integration', () => {
     beforeEach(() => {
@@ -203,6 +205,70 @@ describe('Circle.so API Integration', () => {
             await expect(
                 ensureMember('[email protected]', 'Test User')
             ).rejects.toThrow('Creation failed');
+        });
+    });
+
+    describe('deactivateMember', () => {
+        test('deactivates member successfully', async () => {
+            mockAxiosDelete.mockResolvedValue({
+                data: {
+                    message: 'Member deactivated successfully'
+                }
+            });
+
+            await deactivateMember('test-member-id');
+
+            expect(mockAxiosDelete).toHaveBeenCalledWith('/community_members/test-member-id');
+        });
+
+        test('throws error if memberId is empty', async () => {
+            await expect(deactivateMember('')).rejects.toThrow('memberId is required');
+            expect(mockAxiosDelete).not.toHaveBeenCalled();
+        });
+
+        test('throws error if memberId is null', async () => {
+            await expect(deactivateMember(null)).rejects.toThrow('memberId is required');
+            expect(mockAxiosDelete).not.toHaveBeenCalled();
+        });
+
+        test('handles API errors when deactivating member', async () => {
+            mockAxiosDelete.mockRejectedValue(new Error('Member not found'));
+
+            await expect(deactivateMember('nonexistent-id')).rejects.toThrow('Member not found');
+        });
+
+        test('logs error response details on failure', async () => {
+            const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+
+            const error = new Error('API Error');
+            error.response = {
+                status: 404,
+                data: { message: 'Member not found' }
+            };
+
+            mockAxiosDelete.mockRejectedValue(error);
+
+            await expect(deactivateMember('test-id')).rejects.toThrow('API Error');
+
+            expect(consoleErrorSpy).toHaveBeenCalledWith('Circle API response status:', 404);
+            expect(consoleErrorSpy).toHaveBeenCalledWith(
+                'Circle API response data:',
+                JSON.stringify({ message: 'Member not found' })
+            );
+
+            consoleErrorSpy.mockRestore();
+        });
+
+        test('handles 403 forbidden error (insufficient permissions)', async () => {
+            const error = new Error('Request failed with status code 403');
+            error.response = {
+                status: 403,
+                data: { error: 'Forbidden' }
+            };
+
+            mockAxiosDelete.mockRejectedValue(error);
+
+            await expect(deactivateMember('test-id')).rejects.toThrow();
         });
     });
 });

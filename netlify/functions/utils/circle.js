@@ -85,6 +85,56 @@ const createMember = async (email, name) => {
 };
 
 /**
+ * Update a member's custom field
+ * @param {number|string} memberId - Circle member ID
+ * @param {string} fieldName - Custom field name (e.g., 'checkinCount')
+ * @param {any} value - Value to set
+ * @returns {Promise<object>} Updated member object
+ */
+const updateMemberCustomField = async (memberId, fieldName, value) => {
+    try {
+        console.log(`Updating Circle member ${memberId} custom field ${fieldName}:`, value);
+
+        const response = await circleApi.patch(`/community_members/${memberId}`, {
+            custom_fields_attributes: {
+                [fieldName]: value
+            }
+        });
+
+        console.log('Successfully updated member custom field:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('Error updating member custom field:', error.message);
+        if (error.response) {
+            console.error('Response status:', error.response.status);
+            console.error('Response data:', error.response.data);
+        }
+        throw error;
+    }
+};
+
+/**
+ * Increment a member's check-in counter
+ * @param {number|string} memberId - Circle member ID
+ * @param {number} currentCount - Current check-in count (optional, fetches if not provided)
+ * @returns {Promise<object>} Updated member object
+ */
+const incrementCheckinCount = async (memberId, currentCount = null) => {
+    try {
+        console.log('Incrementing check-in count for Circle member:', memberId);
+
+        // If current count not provided, we'll increment by 1 from whatever exists
+        // Circle.so might handle this automatically, or we may need to fetch first
+        const newCount = currentCount !== null ? currentCount + 1 : 1;
+
+        return await updateMemberCustomField(memberId, 'checkinCount', newCount);
+    } catch (error) {
+        console.error('Error incrementing check-in count:', error.message);
+        throw error;
+    }
+};
+
+/**
  * Create or update a community member (finds existing first)
  * @param {string} email - Member email address
  * @param {string} name - Member name
@@ -104,8 +154,138 @@ const ensureMember = async (email, name) => {
     return await createMember(email, name);
 };
 
+/**
+ * Fallback: Query all members and filter client-side for members without profile photos
+ * @returns {Promise<Array>} Members without profile photos
+ */
+const getAllMembersWithoutPhotos = async () => {
+    console.log('Fetching all members and filtering for no profile photo');
+
+    const response = await circleApi.get('/community_members', {
+        params: { per_page: 100 },
+        timeout: 30000
+    });
+
+    const membersWithoutPhotos = response.data.records.filter(
+        m => !m.has_profile_picture || m.profile_picture === null
+    );
+
+    console.log(`Found ${membersWithoutPhotos.length} members without photos out of ${response.data.records.length} total`);
+    return membersWithoutPhotos;
+};
+
+/**
+ * Deactivate a community member
+ * Soft-deletes member account via Admin API v2
+ *
+ * @param {string} memberId - Circle member ID to deactivate
+ * @returns {Promise<void>}
+ * @throws {Error} If deactivation fails
+ */
+const deactivateMember = async (memberId) => {
+  try {
+    // Input validation
+    if (!memberId || memberId === '') {
+      throw new Error('memberId is required');
+    }
+
+    console.log('Deactivating Circle member:', memberId);
+
+    // DELETE /api/admin/v2/community_members/{id}
+    // Note: This is typically a soft delete that deactivates the member
+    await circleApi.delete(`/community_members/${memberId}`);
+
+    console.log('Successfully deactivated Circle member:', memberId);
+  } catch (error) {
+    console.error('Error deactivating Circle member:', error.message);
+    if (error.response) {
+      console.error('Circle API response status:', error.response.status);
+      console.error('Circle API response data:', JSON.stringify(error.response.data));
+    }
+    throw error;
+  }
+};
+
+/**
+ * Get members in a Circle.so audience segment
+ * Includes pagination support and fallback to all-members query if segment endpoint unavailable
+ *
+ * @param {string|number} segmentId - Circle segment ID (e.g., 238273 for "No Profile Photo")
+ * @returns {Promise<Array>} Array of member objects with {id, email, name, has_profile_picture, ...}
+ * @throws {Error} If Circle API request fails (except 404, which triggers fallback)
+ */
+const getSegmentMembers = async (segmentId) => {
+    const startTime = Date.now();
+
+    // Input validation
+    if (!segmentId || segmentId === '') {
+        throw new Error('segmentId is required');
+    }
+
+    try {
+        console.log('Fetching Circle segment members:', segmentId);
+
+        let allMembers = [];
+        let page = 1;
+        let hasMore = true;
+
+        // Try primary segment endpoint with pagination
+        try {
+            while (hasMore) {
+                const response = await circleApi.get(`/community_segments/${segmentId}/members`, {
+                    params: {
+                        per_page: 100,
+                        page: page
+                    },
+                    timeout: 30000
+                });
+
+                allMembers = allMembers.concat(response.data.records);
+
+                // Check if more pages exist
+                const pagination = response.data.pagination;
+                hasMore = pagination && (page * pagination.per_page < pagination.total);
+
+                if (hasMore) {
+                    console.log(`Fetched page ${page}, continuing to next page...`);
+                }
+
+                page++;
+            }
+
+            console.log(`Found ${allMembers.length} total members in segment ${segmentId}`);
+            console.log(`Segment query completed in ${Date.now() - startTime}ms`);
+            return allMembers;
+
+        } catch (primaryError) {
+            // If segment endpoint not available (404), fall back to all-members query
+            if (primaryError.response && primaryError.response.status === 404) {
+                console.log('Segment members endpoint not available (404), falling back to all-members query');
+                const fallbackResult = await getAllMembersWithoutPhotos();
+                console.log(`Fallback query completed in ${Date.now() - startTime}ms`);
+                return fallbackResult;
+            }
+
+            // Re-throw other errors (401, 429, 500, etc.)
+            throw primaryError;
+        }
+
+    } catch (error) {
+        console.error('Error fetching segment members:', error.message);
+        if (error.response) {
+            console.error('Circle API response status:', error.response.status);
+            console.error('Circle API response data:', JSON.stringify(error.response.data));
+        }
+        throw error;
+    }
+};
+
 module.exports = {
     findMemberByEmail,
     createMember,
-    ensureMember
+    updateMemberCustomField,
+    incrementCheckinCount,
+    ensureMember,
+    deactivateMember,
+    getSegmentMembers
 };

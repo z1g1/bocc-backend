@@ -19,7 +19,9 @@ This is a Netlify Functions backend API for Buffalo Open Coffee Club (BOCC) that
 4. API checks if attendee email exists in Airtable `attendees` table
 5. If exists: fetch attendee record; If not exists: create new attendee record
 6. Create check-in record in `checkins` table with attendee link, eventId, token, and timestamp
-7. For non-debug check-ins: Invite attendee to Circle.so community (non-blocking, background operation)
+7. For non-debug check-ins:
+   a. Invite attendee to Circle.so community (create/find member)
+   b. Increment `checkinCount` custom field in Circle member profile
 8. All records include `debug` flag for filtering test submissions
 9. All check-ins include `token` field (static GUID per event, embedded in URL for basic anti-spoofing)
 
@@ -42,8 +44,10 @@ This is a Netlify Functions backend API for Buffalo Open Coffee Club (BOCC) that
 **Community Platform:** Circle.so
 - Third-party community platform for member engagement
 - Attendees are automatically invited after successful check-in
+- Check-in counter tracked in Circle member custom field (`checkinCount`)
+- Circle workflows can trigger automated rewards based on check-in count
 - Invitations are non-blocking (don't fail check-in if Circle API fails)
-- Only non-debug check-ins trigger Circle invitations
+- Only non-debug check-ins trigger Circle invitations and counter updates
 - API v2 integration via `netlify/functions/utils/circle.js`
 
 **Module System:** CommonJS (require/module.exports)
@@ -190,6 +194,8 @@ All Circle.so API operations are in `netlify/functions/utils/circle.js`:
 - `findMemberByEmail(email)` - Search for Circle member by email (case-insensitive)
 - `createMember(email, name)` - Create/invite new Circle community member
 - `ensureMember(email, name)` - Find existing or create new member (idempotent operation)
+- `updateMemberCustomField(memberId, fieldName, value)` - Update any custom field on member profile
+- `incrementCheckinCount(memberId, currentCount)` - Increment check-in counter (for engagement rewards)
 - Uses Admin API v2 at `https://app.circle.so/api/admin/v2`
 - Authentication: Bearer token via `CIRCLE_API_TOKEN` environment variable
 - All operations include comprehensive error handling and logging
