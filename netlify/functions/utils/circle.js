@@ -154,10 +154,105 @@ const ensureMember = async (email, name) => {
     return await createMember(email, name);
 };
 
+/**
+ * Fallback: Query all members and filter client-side for members without profile photos
+ * @returns {Promise<Array>} Members without profile photos
+ */
+const getAllMembersWithoutPhotos = async () => {
+    console.log('Fetching all members and filtering for no profile photo');
+
+    const response = await circleApi.get('/community_members', {
+        params: { per_page: 100 },
+        timeout: 30000
+    });
+
+    const membersWithoutPhotos = response.data.records.filter(
+        m => !m.has_profile_picture || m.profile_picture === null
+    );
+
+    console.log(`Found ${membersWithoutPhotos.length} members without photos out of ${response.data.records.length} total`);
+    return membersWithoutPhotos;
+};
+
+/**
+ * Get members in a Circle.so audience segment
+ * Includes pagination support and fallback to all-members query if segment endpoint unavailable
+ *
+ * @param {string|number} segmentId - Circle segment ID (e.g., 238273 for "No Profile Photo")
+ * @returns {Promise<Array>} Array of member objects with {id, email, name, has_profile_picture, ...}
+ * @throws {Error} If Circle API request fails (except 404, which triggers fallback)
+ */
+const getSegmentMembers = async (segmentId) => {
+    const startTime = Date.now();
+
+    // Input validation
+    if (!segmentId || segmentId === '') {
+        throw new Error('segmentId is required');
+    }
+
+    try {
+        console.log('Fetching Circle segment members:', segmentId);
+
+        let allMembers = [];
+        let page = 1;
+        let hasMore = true;
+
+        // Try primary segment endpoint with pagination
+        try {
+            while (hasMore) {
+                const response = await circleApi.get(`/community_segments/${segmentId}/members`, {
+                    params: {
+                        per_page: 100,
+                        page: page
+                    },
+                    timeout: 30000
+                });
+
+                allMembers = allMembers.concat(response.data.records);
+
+                // Check if more pages exist
+                const pagination = response.data.pagination;
+                hasMore = pagination && (page * pagination.per_page < pagination.total);
+
+                if (hasMore) {
+                    console.log(`Fetched page ${page}, continuing to next page...`);
+                }
+
+                page++;
+            }
+
+            console.log(`Found ${allMembers.length} total members in segment ${segmentId}`);
+            console.log(`Segment query completed in ${Date.now() - startTime}ms`);
+            return allMembers;
+
+        } catch (primaryError) {
+            // If segment endpoint not available (404), fall back to all-members query
+            if (primaryError.response && primaryError.response.status === 404) {
+                console.log('Segment members endpoint not available (404), falling back to all-members query');
+                const fallbackResult = await getAllMembersWithoutPhotos();
+                console.log(`Fallback query completed in ${Date.now() - startTime}ms`);
+                return fallbackResult;
+            }
+
+            // Re-throw other errors (401, 429, 500, etc.)
+            throw primaryError;
+        }
+
+    } catch (error) {
+        console.error('Error fetching segment members:', error.message);
+        if (error.response) {
+            console.error('Circle API response status:', error.response.status);
+            console.error('Circle API response data:', JSON.stringify(error.response.data));
+        }
+        throw error;
+    }
+};
+
 module.exports = {
     findMemberByEmail,
     createMember,
     updateMemberCustomField,
     incrementCheckinCount,
-    ensureMember
+    ensureMember,
+    getSegmentMembers
 };
