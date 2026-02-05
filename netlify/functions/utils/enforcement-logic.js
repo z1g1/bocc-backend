@@ -19,6 +19,7 @@ const {
   thankYouMessage,
   adminAlert
 } = require('./message-templates');
+const { deactivateMember: deactivateCircleMember } = require('./circle');
 
 // Admin member ID for notifications
 const ADMIN_MEMBER_ID = '2d8e9215'; // circle@zackglick.com
@@ -75,13 +76,20 @@ const sendThankYouDM = async (member) => {
 
 /**
  * Deactivate member account
- * Note: Implementation pending STORY-15
+ * Wrapper around Circle Admin API deactivation
+ *
  * @param {string} memberId - Circle member ID
  * @returns {Promise<void>}
  */
 const deactivateMember = async (memberId) => {
-  console.log(`[STUB] Would deactivate member ${memberId}`);
-  // STORY-15 will implement: DELETE /api/admin/v2/community_members/{memberId}
+  try {
+    console.log(`Deactivating Circle member: ${memberId}`);
+    await deactivateCircleMember(memberId);
+    console.log(`Successfully deactivated Circle member: ${memberId}`);
+  } catch (error) {
+    console.error(`Failed to deactivate Circle member ${memberId}:`, error.message);
+    throw error;
+  }
 };
 
 /**

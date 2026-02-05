@@ -175,6 +175,38 @@ const getAllMembersWithoutPhotos = async () => {
 };
 
 /**
+ * Deactivate a community member
+ * Soft-deletes member account via Admin API v2
+ *
+ * @param {string} memberId - Circle member ID to deactivate
+ * @returns {Promise<void>}
+ * @throws {Error} If deactivation fails
+ */
+const deactivateMember = async (memberId) => {
+  try {
+    // Input validation
+    if (!memberId || memberId === '') {
+      throw new Error('memberId is required');
+    }
+
+    console.log('Deactivating Circle member:', memberId);
+
+    // DELETE /api/admin/v2/community_members/{id}
+    // Note: This is typically a soft delete that deactivates the member
+    await circleApi.delete(`/community_members/${memberId}`);
+
+    console.log('Successfully deactivated Circle member:', memberId);
+  } catch (error) {
+    console.error('Error deactivating Circle member:', error.message);
+    if (error.response) {
+      console.error('Circle API response status:', error.response.status);
+      console.error('Circle API response data:', JSON.stringify(error.response.data));
+    }
+    throw error;
+  }
+};
+
+/**
  * Get members in a Circle.so audience segment
  * Includes pagination support and fallback to all-members query if segment endpoint unavailable
  *
@@ -254,5 +286,6 @@ module.exports = {
     updateMemberCustomField,
     incrementCheckinCount,
     ensureMember,
+    deactivateMember,
     getSegmentMembers
 };

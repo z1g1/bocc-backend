@@ -20,6 +20,11 @@ jest.mock('../netlify/functions/utils/circle-member-api', () => ({
   sendDirectMessage: jest.fn()
 }));
 
+// Mock Circle Admin API for member deactivation
+jest.mock('../netlify/functions/utils/circle', () => ({
+  deactivateMember: jest.fn()
+}));
+
 // Mock message templates (return minimal valid TipTap structure)
 jest.mock('../netlify/functions/utils/message-templates', () => ({
   getWarningMessage: jest.fn(() => ({
@@ -46,6 +51,7 @@ const {
 } = require('../netlify/functions/utils/airtable-warnings');
 
 const { sendDirectMessage } = require('../netlify/functions/utils/circle-member-api');
+const { deactivateMember: mockDeactivateMember } = require('../netlify/functions/utils/circle');
 
 describe('Enforcement Logic - Epic 4', () => {
   beforeEach(() => {
@@ -64,6 +70,9 @@ describe('Enforcement Logic - Epic 4', () => {
       messageId: 'test-message-id',
       duration: 100
     });
+
+    // Mock deactivateMember to resolve successfully by default
+    mockDeactivateMember.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
