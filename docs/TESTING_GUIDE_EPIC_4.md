@@ -65,10 +65,10 @@ AIRTABLE_BASE_ID=<Airtable base ID>
 **Execute:**
 ```bash
 # Trigger enforcement function (dry run first)
-curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcement?dryRun=true"
+curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcement-manual?dryRun=true"
 
 # If dry run looks good, run for real
-curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcement"
+curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcement-manual"
 ```
 
 **Expected Results:**
@@ -107,7 +107,7 @@ curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcem
 **Execute:**
 ```bash
 # Run enforcement again (simulate 2nd week)
-curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcement"
+curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcement-manual"
 ```
 
 **Expected Results (Week 2):**
@@ -119,7 +119,7 @@ curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcem
 
 **Execute Again (Week 3):**
 ```bash
-curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcement"
+curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcement-manual"
 ```
 
 **Expected Results (Week 3):**
@@ -141,7 +141,7 @@ curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcem
 
 **Execute:**
 ```bash
-curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcement"
+curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcement-manual"
 ```
 
 **Expected Results:**
@@ -178,7 +178,7 @@ curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcem
 
 **Execute:**
 ```bash
-curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcement"
+curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcement-manual"
 ```
 
 **Expected Results:**
@@ -214,7 +214,7 @@ curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcem
 
 **Execute:**
 ```bash
-curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcement"
+curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcement-manual"
 ```
 
 **Expected Results:**
@@ -334,15 +334,17 @@ curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcem
 
 ### Dry Run (Safe Testing)
 ```bash
-# Test without making any changes
-curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcement?dryRun=true"
+# Test without making any changes (use manual endpoint for testing)
+curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcement-manual?dryRun=true"
 ```
 
 ### Production Run
 ```bash
-# Execute enforcement for real
-curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcement"
+# Execute enforcement for real (use manual endpoint)
+curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcement-manual"
 ```
+
+**Note:** The scheduled function (`profile-photo-enforcement`) cannot be called via HTTP in production - it only runs on the Monday 9 AM EST schedule. Use the `-manual` version for on-demand testing and execution.
 
 ### Check Logs
 1. Go to Netlify Dashboard
