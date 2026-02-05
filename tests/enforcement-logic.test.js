@@ -15,6 +15,24 @@ jest.mock('../netlify/functions/utils/airtable-warnings', () => ({
   deleteWarningRecord: jest.fn()
 }));
 
+// Mock Circle Member API for DM sending
+jest.mock('../netlify/functions/utils/circle-member-api', () => ({
+  sendDirectMessage: jest.fn()
+}));
+
+// Mock message templates (return minimal valid TipTap structure)
+jest.mock('../netlify/functions/utils/message-templates', () => ({
+  getWarningMessage: jest.fn(() => ({
+    body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Warning' }] }] }
+  })),
+  thankYouMessage: jest.fn(() => ({
+    body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Thank you' }] }] }
+  })),
+  adminAlert: jest.fn(() => ({
+    body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Alert' }] }] }
+  }))
+}));
+
 const {
   determineEnforcementAction,
   processEnforcementAction
@@ -27,6 +45,8 @@ const {
   deleteWarningRecord
 } = require('../netlify/functions/utils/airtable-warnings');
 
+const { sendDirectMessage } = require('../netlify/functions/utils/circle-member-api');
+
 describe('Enforcement Logic - Epic 4', () => {
   beforeEach(() => {
     // Reset all mocks
@@ -36,6 +56,14 @@ describe('Enforcement Logic - Epic 4', () => {
     jest.spyOn(console, 'log').mockImplementation(() => {});
     jest.spyOn(console, 'error').mockImplementation(() => {});
     jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    // Mock sendDirectMessage to return success by default
+    sendDirectMessage.mockResolvedValue({
+      success: true,
+      chatRoomId: 'test-chat-room',
+      messageId: 'test-message-id',
+      duration: 100
+    });
   });
 
   afterEach(() => {

@@ -13,22 +13,121 @@ const {
   deleteWarningRecord
 } = require('./airtable-warnings');
 
-// Note: These modules will be implemented in STORY-14, 15, 16
-// Stubbed for now to allow testing
+const { sendDirectMessage } = require('./circle-member-api');
+const {
+  getWarningMessage,
+  thankYouMessage,
+  adminAlert
+} = require('./message-templates');
+
+// Admin member ID for notifications
+const ADMIN_MEMBER_ID = '2d8e9215'; // circle@zackglick.com
+
+/**
+ * Send warning DM to member
+ * @param {object} member - Circle member object
+ * @param {number} warningLevel - Warning level (1-5)
+ * @returns {Promise<void>}
+ */
 const sendWarningDM = async (member, warningLevel) => {
-  console.log(`[STUB] Would send warning ${warningLevel} DM to ${member.email}`);
+  try {
+    console.log(`Sending warning ${warningLevel} DM to ${member.email}`);
+
+    // Generate message based on warning level
+    const messageBody = getWarningMessage(member.name, warningLevel);
+
+    // Send DM via Member API
+    const result = await sendDirectMessage(member.id, messageBody);
+
+    if (!result.success) {
+      throw new Error(result.error);
+    }
+
+    console.log(`Successfully sent warning ${warningLevel} DM to ${member.email}`);
+  } catch (error) {
+    console.error(`Failed to send warning DM to ${member.email}:`, error.message);
+    throw error;
+  }
 };
 
+/**
+ * Send thank you DM to member who added photo
+ * @param {object} member - Circle member object
+ * @returns {Promise<void>}
+ */
 const sendThankYouDM = async (member) => {
-  console.log(`[STUB] Would send thank you DM to ${member.email}`);
+  try {
+    console.log(`Sending thank you DM to ${member.email}`);
+
+    const messageBody = thankYouMessage(member.name);
+    const result = await sendDirectMessage(member.id, messageBody);
+
+    if (!result.success) {
+      throw new Error(result.error);
+    }
+
+    console.log(`Successfully sent thank you DM to ${member.email}`);
+  } catch (error) {
+    console.error(`Failed to send thank you DM to ${member.email}:`, error.message);
+    throw error;
+  }
 };
 
+/**
+ * Deactivate member account
+ * Note: Implementation pending STORY-15
+ * @param {string} memberId - Circle member ID
+ * @returns {Promise<void>}
+ */
 const deactivateMember = async (memberId) => {
   console.log(`[STUB] Would deactivate member ${memberId}`);
+  // STORY-15 will implement: DELETE /api/admin/v2/community_members/{memberId}
 };
 
-const notifyAdmin = async (subject, message) => {
-  console.log(`[STUB] Would notify admin: ${subject}`);
+/**
+ * Notify admin of enforcement action
+ * @param {string} subject - Alert subject
+ * @param {string} message - Alert message
+ * @param {object} member - Circle member object (optional)
+ * @param {number} warningCount - Warning count (optional)
+ * @returns {Promise<void>}
+ */
+const notifyAdmin = async (subject, message, member = null, warningCount = 0) => {
+  try {
+    console.log(`Sending admin notification: ${subject}`);
+
+    // Determine action type from subject
+    let action = 'INFO';
+    if (subject.includes('Final Warning')) {
+      action = 'FINAL_WARNING';
+    } else if (subject.includes('Deactivated')) {
+      action = 'DEACTIVATION';
+    } else if (subject.includes('Anomaly')) {
+      action = 'ERROR';
+    }
+
+    // Generate admin alert message
+    const messageBody = adminAlert(
+      action,
+      member ? member.name : 'Unknown',
+      member ? member.email : 'unknown@example.com',
+      warningCount,
+      member ? member.id : 'unknown',
+      message
+    );
+
+    // Send DM to admin
+    const result = await sendDirectMessage(ADMIN_MEMBER_ID, messageBody);
+
+    if (!result.success) {
+      throw new Error(result.error);
+    }
+
+    console.log(`Successfully sent admin notification: ${subject}`);
+  } catch (error) {
+    console.error(`Failed to send admin notification:`, error.message);
+    throw error;
+  }
 };
 
 /**
@@ -199,7 +298,9 @@ const processEnforcementAction = async (member, warningRecord, action, dryRun = 
           try {
             await notifyAdmin(
               `Final Warning Issued: ${member.name}`,
-              `${member.name} (${member.email}) received their 4th and final warning.`
+              `${member.name} (${member.email}) received their 4th and final warning.`,
+              member,
+              action.warningLevel
             );
             result.executedActions.push('NOTIFIED_ADMIN');
           } catch (notifyError) {
@@ -233,7 +334,9 @@ const processEnforcementAction = async (member, warningRecord, action, dryRun = 
         try {
           await notifyAdmin(
             `Member Deactivated: ${member.name}`,
-            `${member.name} (${member.email}) was deactivated after 5 warnings without profile photo.`
+            `${member.name} (${member.email}) was deactivated after 5 warnings without profile photo.`,
+            member,
+            5
           );
           result.executedActions.push('NOTIFIED_ADMIN');
         } catch (notifyError) {
@@ -270,7 +373,9 @@ const processEnforcementAction = async (member, warningRecord, action, dryRun = 
           try {
             await notifyAdmin(
               `Enforcement Anomaly: ${member.name}`,
-              `${member.name} (${member.email}): ${action.reason}`
+              `${member.name} (${member.email}): ${action.reason}`,
+              member,
+              action.warningLevel
             );
             result.executedActions.push('NOTIFIED_ADMIN_ANOMALY');
           } catch (notifyError) {
