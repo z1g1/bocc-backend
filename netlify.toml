@@ -16,8 +16,7 @@
 
 # Scheduled Functions
 # Profile Photo Enforcement - runs weekly on Mondays at 9:00 AM EST
-[[functions]]
-  path = "profile-photo-enforcement"
+[functions."profile-photo-enforcement"]
   schedule = "0 14 * * 1"  # Every Monday at 14:00 UTC (9:00 AM EST)
 
 # Environment variables to configure:
