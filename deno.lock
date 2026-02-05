@@ -12,6 +12,7 @@
     "packageJson": {
       "dependencies": [
         "npm:airtable@~0.12.2",
+        "npm:axios@^1.13.4",
         "npm:jest@^29.7.0"
       ]
     }
