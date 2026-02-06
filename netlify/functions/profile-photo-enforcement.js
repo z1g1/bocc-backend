@@ -3,21 +3,19 @@
  * Weekly automated enforcement of profile photo policy
  *
  * Epic 4: Profile Photo Enforcement System
+ * Epic 5: Refactored to use client-side filtering (Feb 2026)
  * STORY-17: Netlify Scheduled Function
  *
  * Runs every Monday at 9:00 AM EST via Netlify Scheduled Functions
  * Configured in netlify.toml
  */
 
-const { getSegmentMembers } = require('./utils/circle');
+const { getMembersWithoutPhotos } = require('./utils/circle');
 const { findWarningByEmail } = require('./utils/airtable-warnings');
 const {
   determineEnforcementAction,
   processEnforcementAction
 } = require('./utils/enforcement-logic');
-
-// Circle.so segment ID for "No Profile Photo" members
-const NO_PHOTO_SEGMENT_ID = 238273;
 
 /**
  * Main enforcement orchestrator
@@ -54,9 +52,11 @@ const runEnforcement = async (dryRun = false) => {
   };
 
   try {
-    // Step 1: Fetch all members without profile photos from Circle segment
-    console.log(`\nFetching members from segment ${NO_PHOTO_SEGMENT_ID}...`);
-    const members = await getSegmentMembers(NO_PHOTO_SEGMENT_ID);
+    // Step 1: Fetch all members without profile photos
+    // Uses client-side filtering as Circle.so Admin API v2 does not support
+    // querying audience segments. See docs/CIRCLE_SEGMENTS_RESEARCH.md
+    console.log('\nFetching all members and filtering for those without photos...');
+    const members = await getMembersWithoutPhotos();
     summary.totalMembers = members.length;
 
     console.log(`Found ${members.length} members without profile photos\n`);
