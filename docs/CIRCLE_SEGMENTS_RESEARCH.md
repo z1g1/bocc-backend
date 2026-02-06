@@ -175,9 +175,17 @@ const membersWithoutPhotos = allMembers.records.filter(member => {
 ### Why This Works
 
 **Current Scale**:
-- Total community members: 60
-- Members without photos: ~27 (45%)
+- Total community members: 60 (API filtered by invitation status)
+- Circle.so UI shows 77 total (includes 17 pending/incomplete invitations)
+- Members without photos: ~27 (45% of active members)
 - API response time: <500ms for full member list
+
+**Invitation Status Filtering** (discovered 2026-02-06):
+- Circle.so API automatically filters members by `Invitation Status`
+- Only returns members with `Invitation Status = "Profile complete"`
+- Excludes pending invitations, incomplete profiles, deactivated members
+- This is **expected and correct behavior** for enforcement
+- Members without completed profiles should not receive enforcement warnings
 
 **Expected Growth**:
 - 1-year projection: 200-500 members
