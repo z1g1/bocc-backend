@@ -373,90 +373,6 @@ const deactivateMember = async (memberId) => {
   }
 };
 
-/**
- * @deprecated This function was designed to query Circle.so audience segments,
- * but Circle.so Admin API v2 does not support segment member queries.
- * Use getMembersWithoutPhotos() instead, which fetches all members and filters client-side.
- * See docs/CIRCLE_SEGMENTS_RESEARCH.md for details.
- *
- * This function will be removed in STORY-21 after all tests are updated.
- *
- * Get members in a Circle.so audience segment
- * Includes pagination support for segments with >100 members
- *
- * SAFETY: If segment doesn't exist (404), this function FAILS immediately.
- * We NEVER fall back to processing all members - that would be dangerous.
- *
- * @param {string|number} segmentId - Circle segment ID (e.g., 238273 for "No Profile Photo")
- * @returns {Promise<Array>} Array of member objects with {id, email, name, has_profile_picture, ...}
- * @throws {Error} If Circle API request fails (including 404 if segment doesn't exist)
- */
-const getSegmentMembers = async (segmentId) => {
-    const startTime = Date.now();
-
-    // Input validation
-    if (!segmentId || segmentId === '') {
-        throw new Error('segmentId is required');
-    }
-
-    console.log('Fetching Circle segment members:', segmentId);
-
-    try {
-        let allMembers = [];
-        let page = 1;
-        let hasMore = true;
-
-        // Fetch segment members with pagination
-        while (hasMore) {
-            const response = await circleApi.get(`/community_segments/${segmentId}/members`, {
-                params: {
-                    per_page: 100,
-                    page: page
-                },
-                timeout: 30000
-            });
-
-            // Handle response data
-            if (!response.data || !response.data.records) {
-                throw new Error(`Invalid response structure from Circle API: missing 'records' field`);
-            }
-
-            allMembers = allMembers.concat(response.data.records);
-
-            // Check if more pages exist
-            const pagination = response.data.pagination;
-            hasMore = pagination && (page * pagination.per_page < pagination.total);
-
-            if (hasMore) {
-                console.log(`Fetched page ${page}, continuing to next page...`);
-            }
-
-            page++;
-        }
-
-        console.log(`Found ${allMembers.length} total members in segment ${segmentId}`);
-        console.log(`Segment query completed in ${Date.now() - startTime}ms`);
-        return allMembers;
-
-    } catch (error) {
-        console.error('CRITICAL ERROR: Failed to fetch segment members:', error.message);
-
-        if (error.response) {
-            console.error('Circle API response status:', error.response.status);
-            console.error('Circle API response data:', JSON.stringify(error.response.data));
-
-            // Provide helpful error messages for common failures
-            if (error.response.status === 404) {
-                throw new Error(`Segment ${segmentId} not found. Check that the segment ID is correct and the segment exists in Circle.so.`);
-            } else if (error.response.status === 401) {
-                throw new Error(`Circle API authentication failed. Check that CIRCLE_API_TOKEN is set correctly.`);
-            }
-        }
-
-        throw error;
-    }
-};
-
 module.exports = {
     findMemberByEmail,
     createMember,
@@ -464,6 +380,5 @@ module.exports = {
     incrementCheckinCount,
     ensureMember,
     deactivateMember,
-    getMembersWithoutPhotos,
-    getSegmentMembers
+    getMembersWithoutPhotos
 };
