@@ -157,6 +157,17 @@ function = "photo-enforcement"
 
 **Notification Method**: TBD based on DM implementation decision (Option A/B/C above)
 
+### Update: Segment API Limitation (2026-02-06)
+
+**Issue Discovered**: Circle.so Admin API v2 does not support querying audience segments for member lists, despite segments being visible in the Circle.so UI.
+
+**Resolution**: Implemented client-side filtering approach via Epic 5:
+- Fetch all community members via `/community_members` endpoint
+- Filter client-side by `avatar_url` field (null or empty = no photo)
+- Added safety limits: 1000 member hard cap, 500 member warning threshold
+
+**See**: EPIC-5 and `docs/CIRCLE_SEGMENTS_RESEARCH.md` for full details.
+
 ## Architecture
 
 ### New Components

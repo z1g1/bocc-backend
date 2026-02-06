@@ -13,11 +13,13 @@
 This guide provides step-by-step instructions for testing the complete profile photo enforcement system with the Test Glick user account.
 
 **System Components:**
-- Circle.so "No Profile Photo" segment (ID: 238273)
+- Circle.so member detection via `getMembersWithoutPhotos()` (client-side filtering by `avatar_url`)
 - Airtable "No Photo Warnings" table
 - Netlify Scheduled Function (weekly Monday 9 AM EST)
 - DM notifications via 716.social Bot
 - Admin notifications to circle@zackglick.com
+
+**Note**: Original design used Circle.so "No Profile Photo" segment (ID: 238273), but Epic 5 refactored to client-side filtering as Circle.so Admin API v2 does not expose segment member lists. See `docs/CIRCLE_SEGMENTS_RESEARCH.md`.
 
 ---
 
@@ -58,8 +60,8 @@ AIRTABLE_BASE_ID=<Airtable base ID>
 **Objective**: Verify first warning creation for member without profile photo
 
 **Setup:**
-1. Ensure Test Glick has **NO profile photo** on Circle
-2. Verify Test Glick is in "No Profile Photo" segment (238273)
+1. Ensure Test Glick has **NO profile photo** on Circle (avatar_url should be null or empty)
+2. Verify `getMembersWithoutPhotos()` returns Test Glick in results (client-side filter)
 3. Verify **NO existing record** in Airtable "No Photo Warnings" table for zglicka@gmail.com
 
 **Execute:**
@@ -288,7 +290,7 @@ curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcem
 - [ ] Test Glick account exists and accessible
 - [ ] Admin account can receive DMs
 - [ ] Airtable table accessible with API key
-- [ ] Circle segment 238273 exists and populated
+- [ ] Test Glick has no profile photo (avatar_url null/empty) for detection
 
 ### Phase 1: First Warning
 - [ ] Airtable record created correctly
@@ -460,11 +462,13 @@ After successful testing:
 - Test Airtable connection manually
 - Review Airtable API rate limits
 
-### Segment Not Returning Members
-- Verify segment ID 238273 exists
-- Check segment has members without photos
-- Test segment endpoint manually
-- Verify Circle API token has segment read permission
+### Member Detection Not Working
+- Verify `CIRCLE_API_TOKEN` is set correctly
+- Test `/community_members` endpoint manually
+- Check members have `avatar_url` field in response
+- Verify client-side filter logic (null or empty string)
+- Review `getMembersWithoutPhotos()` function logs
+- Check safety limits not exceeded (1000 member hard cap)
 
 ---
 
