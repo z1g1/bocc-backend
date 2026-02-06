@@ -235,6 +235,8 @@ const getMembersWithoutPhotos = async () => {
         // Fetch all community members with pagination
         // Circle.so uses has_next_page field (not page count math)
         while (hasMore) {
+            console.log(`Fetching page ${page} (per_page: 100)...`);
+
             const response = await circleApi.get('/community_members', {
                 params: {
                     per_page: 100,
@@ -248,14 +250,20 @@ const getMembersWithoutPhotos = async () => {
                 throw new Error(`Invalid API response: missing 'records' field`);
             }
 
+            const pageRecords = response.data.records.length;
             allMembers = allMembers.concat(response.data.records);
+
+            // Debug: Log pagination response details
+            console.log(`Page ${page}: Retrieved ${pageRecords} members`);
+            console.log(`Page ${page}: has_next_page = ${response.data.has_next_page}`);
+            console.log(`Page ${page}: Total accumulated so far = ${allMembers.length}`);
 
             // Check has_next_page field (Circle.so v2 API standard)
             hasMore = response.data.has_next_page === true;
             page++;
 
             if (hasMore) {
-                console.log(`Fetched page ${page - 1}, continuing to next page...`);
+                console.log(`Continuing to page ${page}...`);
             }
         }
 
