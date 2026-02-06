@@ -218,80 +218,28 @@ describe('getSegmentMembers', () => {
     });
   });
 
-  describe('Fallback to all-members query', () => {
-    it('should fall back to all-members query if segment endpoint returns 404', async () => {
-      const allMembers = [
-        {
-          id: 'member-1',
-          email: 'nophoto1@example.com',
-          name: 'No Photo One',
-          has_profile_picture: false,
-          profile_picture: null
-        },
-        {
-          id: 'member-2',
-          email: 'hasphoto@example.com',
-          name: 'Has Photo',
-          has_profile_picture: true,
-          profile_picture: 'https://example.com/photo.jpg'
-        },
-        {
-          id: 'member-3',
-          email: 'nophoto2@example.com',
-          name: 'No Photo Two',
-          has_profile_picture: false,
-          profile_picture: null
-        }
-      ];
-
-      // First call: segment endpoint returns 404
+  describe('Safety: No fallback to all members', () => {
+    it('should throw error if segment endpoint returns 404 (segment not found)', async () => {
+      // Segment endpoint returns 404
       mockAxiosGet.mockRejectedValueOnce({
         message: 'Request failed with status code 404',
         response: {
           status: 404,
-          data: { error: 'Segment not found or endpoint unavailable' }
+          data: { error: 'Segment not found' }
         }
       });
 
-      // Second call: all-members endpoint succeeds
-      mockAxiosGet.mockResolvedValueOnce({
-        data: {
-          records: allMembers,
-          pagination: {
-            total: 3,
-            per_page: 100,
-            page: 1
-          }
-        }
-      });
-
-      const result = await getSegmentMembers(238273);
-
-      // Verify segment endpoint tried first
-      expect(mockAxiosGet).toHaveBeenNthCalledWith(1,
-        '/community_segments/238273/members',
-        expect.any(Object)
+      // SAFETY: Should throw error, NOT fall back to processing all members
+      await expect(getSegmentMembers(238273)).rejects.toThrow(
+        'Segment 238273 not found'
       );
 
-      // Verify fallback to all-members endpoint
-      expect(mockAxiosGet).toHaveBeenNthCalledWith(2,
-        '/community_members',
-        expect.objectContaining({
-          params: expect.objectContaining({ per_page: 100 })
-        })
-      );
-
-      // Verify members filtered by has_profile_picture: false
-      expect(result).toHaveLength(2);
-      expect(result[0].email).toBe('nophoto1@example.com');
-      expect(result[1].email).toBe('nophoto2@example.com');
-
-      // Verify member with photo excluded
-      expect(result.find(m => m.email === 'hasphoto@example.com')).toBeUndefined();
+      // Verify only one API call (no fallback attempted)
+      expect(mockAxiosGet).toHaveBeenCalledTimes(1);
     });
 
-    it.skip('should not fall back on non-404 errors', async () => {
-      // Mock 401 auth error (should propagate, not trigger fallback)
+    it('should throw error on 401 authentication failure', async () => {
+      // Mock 401 auth error
       mockAxiosGet.mockRejectedValueOnce({
         message: 'Request failed with status code 401',
         response: {
@@ -300,16 +248,18 @@ describe('getSegmentMembers', () => {
         }
       });
 
-      // Verify error is thrown (not caught by fallback)
-      await expect(getSegmentMembers(238273)).rejects.toThrow();
+      // Verify error thrown with helpful message
+      await expect(getSegmentMembers(238273)).rejects.toThrow(
+        'Circle API authentication failed'
+      );
 
-      // Verify only one API call (no fallback attempted)
+      // Verify only one API call (no fallback)
       expect(mockAxiosGet).toHaveBeenCalledTimes(1);
     });
   });
 
   describe('Error handling', () => {
-    it('should propagate Circle API errors with full response context', async () => {
+    it('should throw helpful error message for 401 authentication errors', async () => {
       const mockError = {
         message: 'Request failed with status code 401',
         response: {
@@ -323,18 +273,14 @@ describe('getSegmentMembers', () => {
 
       mockAxiosGet.mockRejectedValue(mockError);
 
-      // Verify error thrown
-      await expect(getSegmentMembers(238273)).rejects.toMatchObject({
-        message: expect.stringContaining('401'),
-        response: expect.objectContaining({
-          status: 401,
-          data: expect.any(Object)
-        })
-      });
+      // Verify error thrown with helpful message
+      await expect(getSegmentMembers(238273)).rejects.toThrow(
+        'Circle API authentication failed. Check that CIRCLE_API_TOKEN is set correctly.'
+      );
 
       // Verify error logging occurred
       expect(console.error).toHaveBeenCalledWith(
-        'Error fetching segment members:',
+        'CRITICAL ERROR: Failed to fetch segment members:',
         expect.any(String)
       );
       expect(console.error).toHaveBeenCalledWith(
@@ -358,7 +304,7 @@ describe('getSegmentMembers', () => {
 
       // Verify error logged
       expect(console.error).toHaveBeenCalledWith(
-        'Error fetching segment members:',
+        'CRITICAL ERROR: Failed to fetch segment members:',
         'Network error'
       );
     });
