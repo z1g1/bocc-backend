@@ -374,6 +374,13 @@ const deactivateMember = async (memberId) => {
 };
 
 /**
+ * @deprecated This function was designed to query Circle.so audience segments,
+ * but Circle.so Admin API v2 does not support segment member queries.
+ * Use getMembersWithoutPhotos() instead, which fetches all members and filters client-side.
+ * See docs/CIRCLE_SEGMENTS_RESEARCH.md for details.
+ *
+ * This function will be removed in STORY-21 after all tests are updated.
+ *
  * Get members in a Circle.so audience segment
  * Includes pagination support for segments with >100 members
  *
