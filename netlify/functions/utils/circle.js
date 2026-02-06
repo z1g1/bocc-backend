@@ -1,3 +1,17 @@
+/**
+ * Circle.so Admin API v2 Utilities
+ * Community member management and photo enforcement
+ *
+ * IMPORTANT: Circle.so does NOT expose audience segments via API v2.
+ * We fetch all members and filter client-side for members without photos.
+ *
+ * See why: docs/CIRCLE_SEGMENTS_RESEARCH.md
+ * See safety limits: docs/SAFETY_LIMITS_SPECIFICATION.md
+ *
+ * Epic 4: Profile Photo Enforcement System
+ * Epic 5: Refactored from segment-based to client-side filtering (Feb 2026)
+ */
+
 const axios = require('axios');
 
 // Circle.so Admin API v2 configuration
@@ -5,6 +19,38 @@ const CIRCLE_API_BASE_URL = 'https://app.circle.so/api/admin/v2';
 const CIRCLE_API_TOKEN = process.env.CIRCLE_API_TOKEN;
 
 console.log('Circle API Token:', CIRCLE_API_TOKEN ? 'Exists' : 'Not set');
+
+/**
+ * Safety Limits for Member Processing
+ *
+ * These limits prevent accidental mass-processing scenarios where bugs or
+ * misconfigurations could cause the system to process thousands of members
+ * instead of the intended subset.
+ *
+ * Current stats (as of 2026-02-06):
+ * - Total community members: 60
+ * - Members without photos: ~27
+ * - Expected 1-year growth: 200-500 total members
+ *
+ * Limit rationale:
+ * - 500 warning = 8x current, top of expected range
+ * - 1000 hard cap = 16x current, 2x expected max
+ * - Performance acceptable up to 1000 members (<2 sec API response)
+ *
+ * If legitimately exceeded:
+ * 1. Verify member count is correct (check Circle.so dashboard)
+ * 2. Update constants below with new limits
+ * 3. Document change in commit message
+ * 4. Update this comment with new stats
+ *
+ * See full spec: docs/SAFETY_LIMITS_SPECIFICATION.md
+ */
+
+// Warning threshold: Log alert but continue processing
+const WARNING_THRESHOLD_MEMBERS = 500;
+
+// Hard limit: Throw error and stop processing
+const HARD_LIMIT_MAX_MEMBERS = 1000;
 
 // Create axios instance with default configuration
 const circleApi = axios.create({
@@ -154,6 +200,143 @@ const ensureMember = async (email, name) => {
     return await createMember(email, name);
 };
 
+/**
+ * Get all community members without profile photos
+ *
+ * Fetches ALL community members via /community_members endpoint and filters
+ * client-side for members where avatar_url is null or empty string.
+ *
+ * Why client-side filtering?
+ * Circle.so Admin API v2 does NOT support querying audience segments.
+ * See: docs/CIRCLE_SEGMENTS_RESEARCH.md
+ *
+ * Safety Limits:
+ * - 500 members: Warning logged (approaching limit)
+ * - 1000 members: Error thrown (hard cap to prevent mass-processing bugs)
+ * See: docs/SAFETY_LIMITS_SPECIFICATION.md
+ *
+ * @returns {Promise<Array>} Members without profile photos (avatar_url null or "")
+ * @throws {Error} If member count exceeds 1000 (safety limit)
+ *
+ * @example
+ * const members = await getMembersWithoutPhotos();
+ * // Returns: [{id: 'abc', email: 'user@example.com', avatar_url: null}, ...]
+ */
+const getMembersWithoutPhotos = async () => {
+    const startTime = Date.now();
+
+    console.log('Fetching all community members and filtering for no profile photo...');
+
+    try {
+        let allMembers = [];
+        let page = 1;
+        let hasMore = true;
+
+        // Fetch all community members with pagination
+        // Circle.so uses has_next_page field (not page count math)
+        while (hasMore) {
+            const response = await circleApi.get('/community_members', {
+                params: {
+                    per_page: 100,
+                    page: page
+                },
+                timeout: 30000
+            });
+
+            // Validate response structure
+            if (!response.data || !response.data.records) {
+                throw new Error(`Invalid API response: missing 'records' field`);
+            }
+
+            allMembers = allMembers.concat(response.data.records);
+
+            // Check has_next_page field (Circle.so v2 API standard)
+            hasMore = response.data.has_next_page === true;
+            page++;
+
+            if (hasMore) {
+                console.log(`Fetched page ${page - 1}, continuing to next page...`);
+            }
+        }
+
+        const totalMembers = allMembers.length;
+        console.log(`Fetched ${totalMembers} total community members`);
+
+        // Check safety limits before filtering
+        // See: docs/SAFETY_LIMITS_SPECIFICATION.md
+
+        if (totalMembers >= WARNING_THRESHOLD_MEMBERS && totalMembers < HARD_LIMIT_MAX_MEMBERS) {
+            // Log warning but continue (not critical yet)
+            console.warn(
+                `⚠️  WARNING: Processing ${totalMembers} members. ` +
+                `Approaching safety limit (${HARD_LIMIT_MAX_MEMBERS}). ` +
+                `See: docs/SAFETY_LIMITS_SPECIFICATION.md`
+            );
+        }
+
+        if (totalMembers >= HARD_LIMIT_MAX_MEMBERS) {
+            // Throw error to prevent mass-processing bugs
+            const errorMsg =
+                `Safety limit exceeded: Found ${totalMembers} members, ` +
+                `maximum allowed is ${HARD_LIMIT_MAX_MEMBERS}. ` +
+                `This prevents accidental mass-processing. ` +
+                `\n\n` +
+                `If your community legitimately has ${totalMembers} members:\n` +
+                `1. Verify this count is correct (check Circle.so dashboard)\n` +
+                `2. Update HARD_LIMIT_MAX_MEMBERS in netlify/functions/utils/circle.js\n` +
+                `3. Document the change in commit message\n` +
+                `4. Update safety limits documentation\n` +
+                `\n` +
+                `See: docs/SAFETY_LIMITS_SPECIFICATION.md`;
+
+            console.error('🚨 SAFETY LIMIT EXCEEDED:', errorMsg);
+            throw new Error(errorMsg);
+        }
+
+        // Filter for members without profile photos
+        // No photo = avatar_url is null OR empty string
+        const membersWithoutPhotos = allMembers.filter(member => {
+            const hasPhoto = member.avatar_url && member.avatar_url !== '';
+            return !hasPhoto;
+        });
+
+        console.log(`Found ${membersWithoutPhotos.length} members without profile photos`);
+        console.log(`Query completed in ${Date.now() - startTime}ms`);
+
+        return membersWithoutPhotos;
+
+    } catch (error) {
+        console.error('CRITICAL ERROR: Failed to fetch members:', error.message);
+
+        if (error.response) {
+            console.error('Circle API response status:', error.response.status);
+            console.error('Circle API response data:', JSON.stringify(error.response.data));
+
+            // Provide helpful error messages for common failures
+            if (error.response.status === 401) {
+                throw new Error(`Circle API authentication failed. Check that CIRCLE_API_TOKEN is set correctly.`);
+            }
+        }
+
+        throw error;
+    }
+};
+
+/**
+ * FUTURE: If Circle.so adds segment API support
+ *
+ * If Circle.so implements /community_segments endpoint in the future:
+ * 1. Test the endpoint thoroughly
+ * 2. Compare performance (segment vs. client-side filtering)
+ * 3. Consider migration only if >2000 members (see research doc)
+ * 4. Keep this function as fallback if segment API fails
+ *
+ * Migration not recommended unless member count exceeds 5000.
+ * Current approach works well at <1000 member scale.
+ *
+ * See: docs/CIRCLE_SEGMENTS_RESEARCH.md (Future Monitoring section)
+ */
+
 // REMOVED: getAllMembersWithoutPhotos() fallback
 // Safety: We must NEVER fall back to processing all members
 // If the segment doesn't exist, the function should fail
@@ -274,5 +457,6 @@ module.exports = {
     incrementCheckinCount,
     ensureMember,
     deactivateMember,
+    getMembersWithoutPhotos,
     getSegmentMembers
 };

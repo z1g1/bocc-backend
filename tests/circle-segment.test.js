@@ -596,10 +596,11 @@ describe('getMembersWithoutPhotos (Epic 5 - Client-Side Filtering)', () => {
       // Error message should show actual count
       await expect(getMembersWithoutPhotos()).rejects.toThrow('Found 5000 members');
 
-      // Console error should be logged
+      // Console error should be logged (called with emoji prefix + error message)
       await getMembersWithoutPhotos().catch(() => {});  // Suppress error for assertion
       expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining('SAFETY LIMIT EXCEEDED')
+        '🚨 SAFETY LIMIT EXCEEDED:',
+        expect.stringContaining('Safety limit exceeded')
       );
 
       // Error should still reference the 1000 limit
