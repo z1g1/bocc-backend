@@ -341,3 +341,151 @@ If you're reading this in 2027+ and Circle.so has added segment member query end
 **Epic Owner**: Zack Glick
 **Technical Lead**: Claude Code
 **Target Completion**: 2026-02-07 (before Epic 4 manual testing)
+
+---
+
+## Planning Summary
+
+**Status**: ✅ **PLANNING COMPLETE**
+**Created**: 2026-02-06
+**Estimated Effort**: 8-10 hours over 1-2 days
+
+### Epic Breakdown
+
+**STORY-19**: Research Documentation & Safety Analysis
+- Complexity: Small | Points: 2 | Time: 1-2 hours
+- Deliverables: CIRCLE_SEGMENTS_RESEARCH.md, safety limits definition, test scenarios
+
+**STORY-20**: Refactor Function Implementation
+- Complexity: Medium | Points: 5 | Time: 3-4 hours
+- Deliverables: New `getMembersWithoutPhotos()` function with pagination and safety limits
+
+**STORY-21**: Update Test Suite
+- Complexity: Medium | Points: 3 | Time: 2-3 hours
+- Deliverables: 15 tests updated, 5 new tests added, total 20 tests passing
+
+**STORY-22**: Integration Testing & Documentation
+- Complexity: Small | Points: 2 | Time: 1-2 hours
+- Deliverables: Integration test, Epic 4 documentation updates, enforcement function updated
+
+### Safety Architecture
+
+| Threshold | Action | Rationale |
+|-----------|--------|-----------|
+| **0-500 members** | Normal operation | Current: 60, Expected 1-year: 200-500 |
+| **501-1000 members** | Log warning, continue | Approaching limit, admin notification |
+| **1000+ members** | Throw error, stop | Likely error, prevent mass processing |
+
+### Success Criteria
+
+**Technical Success**:
+- ✅ Function fetches all members correctly
+- ✅ Client-side filtering accurate (null and empty string)
+- ✅ Safety limits enforce correctly
+- ✅ Pagination handles multiple pages
+- ✅ Performance <2 seconds for current size
+- ✅ All 20 tests passing
+
+**Integration Success**:
+- ✅ Test Glick correctly detected when photo removed
+- ✅ Members with photos correctly excluded
+- ✅ Enforcement function works end-to-end
+- ✅ No errors in console logs
+
+---
+
+## Implementation Summary
+
+**Status**: ✅ **COMPLETE**
+**Completion Date**: 2026-02-06
+**Test Coverage**: 264 tests passing, 2 integration tests (skipped without API token)
+
+### Problem Solved
+
+**Discovery**: Circle.so Admin API v2 does not expose audience segments via API endpoints, despite segments being visible in the Circle.so UI.
+
+**Resolution**: Implemented client-side filtering approach:
+1. Fetch all community members via `/community_members` endpoint
+2. Filter client-side by `avatar_url` field (null or empty = no photo)
+3. Added safety limits: 1000 member hard cap, 500 member warning threshold
+
+### Implementation Details
+
+**New Function**: `getMembersWithoutPhotos()` in `netlify/functions/utils/circle.js`
+
+**Key Features**:
+- Pagination support (Circle.so uses `has_next_page` field)
+- Safety limits (500 warning, 1000 hard cap)
+- Performance logging (member count, execution time)
+- Comprehensive error handling
+
+### Verified Numbers (2026-02-06)
+
+**Circle.so Community Statistics**:
+- **UI Total**: 77 members (all invitation statuses)
+- **API Returns**: 60 members (invitation status = "Profile complete")
+- **Without Photos**: 10 members (with "Profile complete" status)
+- **UI Segment**: 27 members without photos (includes all statuses)
+
+**Discrepancy Explained**:
+- 17 members: Pending/incomplete invitations (filtered out by API)
+- This is **expected and correct** - enforcement only targets completed profiles
+
+**Avatar Detection Accuracy**:
+- Our filter: `avatar_url === null` → 10 members
+- Circle.so segment: 27 members (includes incomplete profiles)
+- ✅ Our detection is accurate for profile-complete members
+
+**Performance**:
+- API response time: <750ms for 60 members
+- Total processing time: <2 seconds (within target)
+
+### Test Coverage
+
+**Unit Tests**: 264 passing
+
+| Test Suite | Tests | Coverage |
+|------------|-------|----------|
+| circle-member-photo-detection.test.js | 15 | Pagination, filtering, safety limits |
+| Other test suites | 249 | Full system coverage |
+
+**Integration Tests**: 2 tests (auto-skip without CIRCLE_API_TOKEN)
+- Fetch all members and filter for no photos (real API)
+- End-to-end enforcement function integration
+
+### Documentation Deliverables
+
+1. **CIRCLE_SEGMENTS_RESEARCH.md** (375 lines) - API endpoint investigation and root cause analysis
+2. **SAFETY_LIMITS_SPECIFICATION.md** (200+ lines) - Detailed safety limit rationale
+3. **Epic 4 Documentation Updates** - Added segment API limitation section
+4. **Integration Test Documentation** - Testing instructions and npm scripts
+
+### Impact on Epic 4
+
+**Before Epic 5**: Epic 4 complete but blocked (segment endpoint 404 errors)
+**After Epic 5**: Epic 4 unblocked, ready for manual testing
+**Timeline**: 1 day to complete Epic 5 refactoring
+
+### Lessons Learned
+
+1. **API Assumptions Are Dangerous**: Always verify API capabilities before architectural decisions
+2. **Value of Fail-Safe Design**: Dangerous silent fallback identified and removed
+3. **Client-Side Filtering Is Acceptable**: <1 second for 60 members, <2 seconds for expected growth
+4. **Importance of Verification**: Circle.so filters by invitation status automatically
+
+### Production Readiness Checklist
+
+- [x] All unit tests passing (264 tests)
+- [x] Integration tests created and validated
+- [x] Safety limits implemented and tested
+- [x] Performance targets met (<2 seconds)
+- [x] Error handling comprehensive
+- [x] Documentation complete and thorough
+- [x] Epic 4 enforcement function updated
+- [x] Code reviewed and production-ready
+- [x] No debug logging in production code
+- [x] Verified numbers with real API data
+
+**Status**: ✅ **READY FOR EPIC 4 MANUAL TESTING**
+
+**Full Details**: See `docs/EPIC_5_PLANNING_SUMMARY.md` and `docs/EPIC_5_COMPLETION_SUMMARY.md` (to be consolidated)

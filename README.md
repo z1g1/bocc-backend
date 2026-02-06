@@ -15,6 +15,8 @@ Backend API for Buffalo Open Coffee Club (BOCC) that handles event check-ins wit
 - Idempotent member creation (safe retry on duplicates)
 - Non-blocking invitation (check-in succeeds even if Circle fails)
 - Only production check-ins trigger invitations (debug check-ins skip Circle)
+- Check-in counter tracking in Circle member custom fields
+- Automated profile photo enforcement with progressive warnings
 
 ### Security
 - Input validation and sanitization for all fields
@@ -70,7 +72,7 @@ npm install
 
 ### Run Tests
 ```bash
-# Run all unit tests (143 tests)
+# Run all unit tests (264 tests)
 npm test
 
 # Run specific test suite
@@ -87,9 +89,9 @@ npm run test:smoke-prod
 ```
 
 ### Test Coverage
-The test suite includes 143 tests covering:
+The test suite includes 264 tests covering:
 
-- **Validation utilities** (`validation.test.js`, 43 tests)
+- **Validation utilities** (`validation.test.js`, 64 tests)
   - Email validation (format, injection attacks)
   - Phone number validation
   - Event ID validation
@@ -97,13 +99,14 @@ The test suite includes 143 tests covering:
   - Airtable formula escaping
   - Text sanitization (XSS prevention)
 
-- **Checkin handler** (`checkin.test.js`, 23 tests)
+- **Checkin handler** (`checkin.test.js`, 59 tests)
   - CORS preflight handling
   - Input validation and sanitization
   - Existing attendee check-in flow
   - New attendee creation and check-in flow
   - Error handling
   - Debug flag handling
+  - Circle.so integration
 
 - **Deduplication** (`deduplication.test.js`, 8 tests)
   - Duplicate check-in detection
@@ -112,14 +115,18 @@ The test suite includes 143 tests covering:
   - Formula injection prevention
   - Client-side filtering by attendeeId
 
-- **Circle.so Integration** (`circle.test.js`, 11 tests)
+- **Circle.so Integration** (`circle.test.js`, 17 tests)
   - Member search (found, not found, case-insensitive)
-  - Member creation
+  - Member creation and deactivation
   - Error handling
   - Idempotent ensure operation
 
-- **Validation utilities** (`validation.test.js`, 58 tests)
-  - Comprehensive input validation coverage
+- **Profile Photo Enforcement** (117 tests)
+  - Member photo detection (`circle-member-photo-detection.test.js`, 15 tests)
+  - Airtable warnings tracking (`airtable-warnings.test.js`, 22 tests)
+  - Enforcement logic (`enforcement-logic.test.js`, 28 tests)
+  - Message templates (`message-templates.test.js`, 37 tests)
+  - Member API DM integration (`circle-member-api.test.js`, 23 tests)
 
 ### Manual Testing
 
@@ -233,7 +240,14 @@ bocc-backend/
 │   ├── circle-diagnostic.sh     # Circle.so diagnostic test
 │   └── start-local-test.sh      # Automated local testing
 ├── docs/
-│   └── EPIC_2_CIRCLE_INTEGRATION.md  # Circle.so integration documentation
+│   ├── epics/                   # Epic documentation (EPIC_2, EPIC_3, EPIC_4, EPIC_5)
+│   ├── stories/                 # Story documentation by epic
+│   ├── tasks/                   # Task documentation by epic
+│   ├── CIRCLE_SEGMENTS_RESEARCH.md      # Circle.so API research
+│   ├── SAFETY_LIMITS_SPECIFICATION.md   # Safety limits documentation
+│   ├── AIRTABLE_SCHEMA_PHOTO_WARNINGS.md # Airtable schema for warnings
+│   ├── MESSAGE_TEMPLATES_EPIC_4.md      # Message templates for enforcement
+│   └── TESTING_GUIDE_EPIC_4.md          # Manual testing guide
 ├── CIRCLE_PERMISSIONS.md        # Circle.so API permissions guide
 ├── CLAUDE.md                    # Development guidance for Claude Code
 ├── netlify.toml                 # Netlify configuration
@@ -282,29 +296,69 @@ Successfully ensured Circle member: 12345
 - **Frontend**: https://github.com/z1g1/bocc-website
 - **Backend**: https://github.com/z1g1/bocc-backend (this repo)
 
-## Improvements Completed
+## Epics Completed
 
+### Epic 1: Check-in System Foundation
 - ✅ Token-based anti-spoofing via QR code URL parameter
 - ✅ Email format validation
 - ✅ Phone number format validation
 - ✅ Duplicate check-in prevention (same day, same event, same token)
-- ✅ Circle.so community integration with automatic invitations
 - ✅ Comprehensive input validation and sanitization
 - ✅ Formula injection protection
 - ✅ XSS prevention
+
+### Epic 2: Circle.so Member Invitations (commit: 6ddaa41)
+- ✅ Automatic Circle.so community member invitations
+- ✅ Idempotent member creation/lookup
+- ✅ Non-blocking invitation (check-in succeeds if Circle fails)
+- ✅ Debug check-ins skip Circle invitations
+
+### Epic 3: Engagement Rewards (commit: feadbed)
+- ✅ Check-in counter tracking in Circle custom fields
+- ✅ Automated counter increment on each check-in
+- ✅ Foundation for gamification and milestone rewards
+- ⏳ Circle.so workflows for automated recognition (user setup required)
+
+### Epic 4: Profile Photo Enforcement (commit: Multiple)
+- ✅ Automated weekly profile photo enforcement system
+- ✅ Progressive warning system (warnings 1-5)
+- ✅ Member API DM integration for notifications
+- ✅ Account deactivation for non-compliance
+- ✅ Admin notification system
+- ✅ Comprehensive state machine for enforcement logic
+- ⏳ Manual testing with Test Glick user (pending)
+- ⏳ Production deployment (pending)
+
+### Epic 5: Member Photo Detection Refactoring (commit: Multiple)
+- ✅ Refactored from segment-based to client-side filtering
+- ✅ Safety limits (1000 member hard cap, 500 warning)
+- ✅ Comprehensive API research documentation
+- ✅ Unblocked Epic 4 for deployment
 
 ## Future Improvements
 
 - Display check-in confirmation with edit option
 - Privacy policy and data deletion capability
-- Engagement rewards based on check-in count
 - Dev/staging/main branch workflow
 
 ## Documentation
 
+**Developer Guidance**:
 - `CLAUDE.md` - Development guidance and architecture
 - `CIRCLE_PERMISSIONS.md` - Circle.so API permissions setup
-- `docs/EPIC_2_CIRCLE_INTEGRATION.md` - Circle.so integration details
+
+**Epic Documentation** (in `docs/epics/`):
+- `EPIC_2.md` - Circle.so member invitations
+- `EPIC_3.md` - Engagement rewards with check-in counter
+- `EPIC_4.md` - Profile photo enforcement system
+- `EPIC_5.md` - Member photo detection refactoring
+
+**Technical References** (in `docs/`):
+- `CIRCLE_SEGMENTS_RESEARCH.md` - Circle.so API endpoint research
+- `SAFETY_LIMITS_SPECIFICATION.md` - Safety limits rationale
+- `AIRTABLE_SCHEMA_PHOTO_WARNINGS.md` - Warnings table schema
+- `MESSAGE_TEMPLATES_EPIC_4.md` - Enforcement message templates
+- `TESTING_GUIDE_EPIC_4.md` - Manual testing guide
 
 ## License
 

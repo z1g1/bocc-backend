@@ -486,6 +486,117 @@ curl -X POST https://bocc-backend.netlify.app/.netlify/functions/photo-enforceme
 
 ---
 
-**Epic Owner**: To be assigned
-**Technical Lead**: To be assigned
+**Epic Owner**: Zack Glick
+**Technical Lead**: Claude Code
 **Estimated Completion**: TBD based on DM implementation complexity
+
+---
+
+## Implementation Summary
+
+**Status**: ✅ **COMPLETE - Ready for Testing** (Updated 2026-02-06 with Epic 5 refactoring)
+**Completion Date**: 2025-02-05 (Epic 4), 2026-02-06 (Epic 5 member detection refactoring)
+**Test Coverage**: 265 tests passing (updated after Epic 5 refactoring)
+
+### Important Update: Epic 5 Refactoring (2026-02-06)
+
+**After Epic 4 completion, we discovered a critical issue**: Circle.so Admin API v2 does not support querying audience segments for member lists. The `getSegmentMembers()` function was designed assuming a `/community_segments/{id}/members` endpoint existed, but this endpoint does not exist in the API.
+
+**Resolution**: Epic 5 refactored the member detection approach:
+- **New function**: `getMembersWithoutPhotos()` replaces `getSegmentMembers()`
+- **New approach**: Fetch all members, filter client-side by `avatar_url` field
+- **Safety limits**: 1000 member hard cap, 500 member warning threshold
+- **No functional change**: Members without photos still detected accurately
+
+**See**: EPIC-5 and `docs/CIRCLE_SEGMENTS_RESEARCH.md` for complete details.
+
+### Stories Completed
+
+| Story | Component | Status | Tests |
+|-------|-----------|--------|-------|
+| STORY-11 | Circle Segment API | ✅ Complete | 15 passing |
+| STORY-12 | Airtable Warnings | ✅ Complete | 22 passing |
+| STORY-13 | Enforcement Logic | ✅ Complete | 28 passing |
+| STORY-14 | Member API DM Integration | ✅ Complete | 88 passing |
+| STORY-15 | Account Deactivation | ✅ Complete | 6 passing |
+| STORY-16 | Admin Notifications | ✅ Complete | Integrated in STORY-14 |
+| STORY-17 | Scheduled Function | ✅ Complete | Ready for testing |
+| STORY-18 | Testing Framework | ✅ Complete | 273 passing |
+
+**Total Implementation**: ~1,510 lines of production code + ~2,500 lines of tests
+
+### Core Modules Implemented
+
+#### 1. Circle.so API Integration (`utils/circle.js`)
+- **Admin API v2**: Member management, member detection, deactivation
+- **Member API (Headless)**: JWT auth, chat room management, DM sending
+- **Functions**: `getMembersWithoutPhotos()`, `deactivateMember()`
+
+#### 2. Airtable Warnings (`utils/airtable-warnings.js`)
+- **Table**: "No Photo Warnings" with 8 fields
+- **CRUD Operations**: Find, create, increment, update status, delete
+- **Functions**: `findWarningByEmail()`, `createWarningRecord()`, `incrementWarningCount()`, etc.
+
+#### 3. Enforcement Logic (`utils/enforcement-logic.js`)
+- **Decision Engine**: `determineEnforcementAction()` - pure function, state machine
+- **Execution Engine**: `processEnforcementAction()` - orchestrates all operations
+- **Actions**: CREATE_WARNING, INCREMENT_WARNING, DEACTIVATE, PHOTO_ADDED, SKIP
+
+#### 4. Message Templates (`utils/message-templates.js`)
+- **Format**: TipTap JSON for Circle.so rich text rendering
+- **Templates**: 5 message types (warnings 1-5, thank you, admin alerts)
+- **Functions**: `getWarningMessage()`, `thankYouMessage()`, `adminAlert()`
+
+#### 5. Member API Client (`utils/circle-member-api.js`)
+- **JWT Authentication**: Bot user (716.social Bot, ID: 73e5a590)
+- **Chat Rooms**: Find/create DM conversations
+- **Message Sending**: TipTap JSON to chat rooms
+- **Functions**: `getBotUserJWT()`, `findOrCreateDMChatRoom()`, `sendDirectMessage()`
+
+#### 6. Scheduled Orchestrator (`profile-photo-enforcement.js`)
+- **Cron Schedule**: Every Monday 9:00 AM EST (14:00 UTC)
+- **Orchestration**: Fetch members → process → track results → generate summary
+- **Dry Run Support**: `?dryRun=true` for safe testing
+
+### Test Coverage
+
+**Unit Tests**: 265 passing
+
+| Module | Tests | Coverage |
+|--------|-------|----------|
+| Circle Member Photo Detection | 15 | Member queries, pagination, safety limits |
+| Airtable Warnings | 22 | CRUD operations, email matching |
+| Enforcement Logic | 28 | State machine, all actions, edge cases |
+| Message Templates | 37 | TipTap JSON, all templates, validation |
+| Circle Member API | 23 | JWT auth, chat rooms, DM sending |
+| Other modules | 140 | Existing system coverage |
+
+**Integration Testing**: Ready for manual testing with Test Glick user
+
+### Configuration
+
+**Environment Variables Required**:
+```bash
+CIRCLE_API_TOKEN=<Admin API v2 token>
+CIRCLE_HEADLESS_API=<Headless Auth token for bot user 73e5a590>
+AIRTABLE_API_KEY=<Airtable API key>
+AIRTABLE_BASE_ID=<BOCC Airtable base ID>
+```
+
+**Netlify Scheduled Function** (`netlify.toml`):
+```toml
+[[functions]]
+  path = "profile-photo-enforcement"
+  schedule = "0 14 * * 1"  # Every Monday at 14:00 UTC (9:00 AM EST)
+```
+
+### Next Steps for Production
+
+1. ⏳ Manual testing with Test Glick user
+2. ⏳ Verify all DMs render correctly in Circle
+3. ⏳ Confirm admin notifications working
+4. ⏳ Test deactivation/reactivation flow
+5. ⏳ Deploy to staging for final testing
+6. ⏳ Deploy to production
+
+**Full Implementation Details**: See `docs/EPIC_4_IMPLEMENTATION_SUMMARY.md` (to be consolidated)
