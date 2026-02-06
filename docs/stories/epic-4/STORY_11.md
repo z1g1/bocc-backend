@@ -309,3 +309,29 @@ curl -X POST http://localhost:8888/.netlify/functions/test-segment-query \
 ---
 
 **Next Steps**: Implement `getSegmentMembers()` function in `circle.js`, write unit tests, verify with production segment 238273 using Test Glick user as validation.
+
+---
+
+## Architectural Change Update (2026-02-06)
+
+**Issue**: After implementation research (Epic 5), we discovered that Circle.so Admin API v2 **does not expose audience segments** for querying member lists. The `GET /api/admin/v2/community_segments/{segmentId}/members` endpoint does not exist.
+
+**Resolution**: This story's approach was **replaced** by `getMembersWithoutPhotos()` implemented in Epic 5:
+- Fetches all members via `GET /api/admin/v2/community_members` (with pagination)
+- Filters client-side by `avatar_url === null || avatar_url === ""`
+- Added safety limits (500 warning, 1000 hard cap) to prevent accidental mass-processing
+- Performance remains acceptable: <3 seconds for expected community sizes (<1000 members)
+
+**Function Changes**:
+- ~~`getSegmentMembers(segmentId)`~~ → **Deprecated, never implemented**
+- `getMembersWithoutPhotos()` → **New approach** (Epic 5)
+
+**Documentation**:
+- See `docs/CIRCLE_SEGMENTS_RESEARCH.md` for API investigation details
+- See `docs/SAFETY_LIMITS_SPECIFICATION.md` for safety limit rationale
+- See `netlify/functions/utils/circle.js` for implementation
+
+**Impact on Epic 4**:
+- All enforcement logic remains the same (STORY-13 through STORY-18)
+- Only the member detection mechanism changed
+- Integration tests validate new approach with real Circle.so API
