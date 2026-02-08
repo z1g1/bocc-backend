@@ -411,12 +411,60 @@ const deactivateMember = async (memberId) => {
   }
 };
 
+/**
+ * Update all streak-related custom fields for a Circle.so member
+ * Epic 1: Visit Count and Streak Tracking System (STORY-004)
+ *
+ * Updates three custom fields:
+ * - currentStreak: Current consecutive weeks
+ * - longestStreak: Personal best (highest streak ever)
+ * - lastCheckinDate: Last check-in date in ISO 8601 format (YYYY-MM-DD)
+ *
+ * @param {string|number} memberId - Circle member ID
+ * @param {object} streakData - Calculated streak data
+ * @param {number} streakData.currentStreak - Current consecutive weeks
+ * @param {number} streakData.longestStreak - Personal best
+ * @param {string} streakData.lastCheckinDate - ISO 8601 date string (YYYY-MM-DD)
+ * @returns {Promise<object>} Success/failure status {success: boolean, error?: string}
+ *
+ * @example
+ * await updateStreakFields('member123', {
+ *   currentStreak: 5,
+ *   longestStreak: 10,
+ *   lastCheckinDate: '2026-02-07'
+ * });
+ */
+const updateStreakFields = async (memberId, streakData) => {
+    try {
+        console.log('Updating Circle.so streak fields for member:', memberId);
+        console.log('Streak data:', streakData);
+
+        // Sequential updates (MVP approach for simpler error handling)
+        // Updates: currentStreak, longestStreak, lastCheckinDate
+        await updateMemberCustomField(memberId, 'currentStreak', streakData.currentStreak);
+        await updateMemberCustomField(memberId, 'longestStreak', streakData.longestStreak);
+        await updateMemberCustomField(memberId, 'lastCheckinDate', streakData.lastCheckinDate);
+
+        console.log('Successfully updated all streak fields');
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to update Circle.so streak fields:', error.message);
+        if (error.response) {
+            console.error('Response status:', error.response.status);
+            console.error('Response data:', JSON.stringify(error.response.data));
+        }
+        // Don't throw - allow check-in to continue even if Circle.so update fails
+        return { success: false, error: error.message };
+    }
+};
+
 module.exports = {
     findMemberByEmail,
     createMember,
     getMemberCustomField,
     updateMemberCustomField,
     incrementCheckinCount,
+    updateStreakFields,
     ensureMember,
     deactivateMember,
     getMembersWithoutPhotos

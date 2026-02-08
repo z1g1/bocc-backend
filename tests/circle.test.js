@@ -1,10 +1,12 @@
 // Mock axios before requiring the module
 const mockAxiosGet = jest.fn();
 const mockAxiosPost = jest.fn();
+const mockAxiosPatch = jest.fn();
 const mockAxiosDelete = jest.fn();
 const mockAxiosCreate = jest.fn(() => ({
     get: mockAxiosGet,
     post: mockAxiosPost,
+    patch: mockAxiosPatch,
     delete: mockAxiosDelete
 }));
 
@@ -12,7 +14,7 @@ jest.mock('axios', () => ({
     create: mockAxiosCreate
 }));
 
-const { findMemberByEmail, createMember, ensureMember, deactivateMember, getMemberCustomField, updateMemberCustomField, incrementCheckinCount } = require('../netlify/functions/utils/circle');
+const { findMemberByEmail, createMember, ensureMember, deactivateMember, getMemberCustomField, updateMemberCustomField, incrementCheckinCount, updateStreakFields } = require('../netlify/functions/utils/circle');
 
 describe('Circle.so API Integration', () => {
     beforeEach(() => {
@@ -441,6 +443,193 @@ describe('Circle.so API Integration', () => {
             await expect(incrementCheckinCount('member123')).resolves.not.toThrow();
 
             consoleErrorSpy.mockRestore();
+        });
+    });
+
+    describe('updateStreakFields', () => {
+        const streakData = {
+            currentStreak: 5,
+            longestStreak: 10,
+            lastCheckinDate: '2026-02-07'
+        };
+
+        beforeEach(() => {
+            jest.clearAllMocks();
+        });
+
+        test('updates all three streak fields successfully', async () => {
+            mockAxiosPatch.mockResolvedValue({
+                data: { success: true }
+            });
+
+            const result = await updateStreakFields('member123', streakData);
+
+            expect(result.success).toBe(true);
+            expect(mockAxiosPatch).toHaveBeenCalledTimes(3);
+        });
+
+        test('updates currentStreak field with correct value', async () => {
+            mockAxiosPatch.mockResolvedValue({
+                data: { success: true }
+            });
+
+            await updateStreakFields('member123', streakData);
+
+            expect(mockAxiosPatch).toHaveBeenCalledWith(
+                '/community_members/member123',
+                { custom_fields_attributes: { currentStreak: 5 } }
+            );
+        });
+
+        test('updates longestStreak field with correct value', async () => {
+            mockAxiosPatch.mockResolvedValue({
+                data: { success: true }
+            });
+
+            await updateStreakFields('member123', streakData);
+
+            expect(mockAxiosPatch).toHaveBeenCalledWith(
+                '/community_members/member123',
+                { custom_fields_attributes: { longestStreak: 10 } }
+            );
+        });
+
+        test('updates lastCheckinDate field with ISO 8601 string', async () => {
+            mockAxiosPatch.mockResolvedValue({
+                data: { success: true }
+            });
+
+            await updateStreakFields('member123', streakData);
+
+            expect(mockAxiosPatch).toHaveBeenCalledWith(
+                '/community_members/member123',
+                { custom_fields_attributes: { lastCheckinDate: '2026-02-07' } }
+            );
+        });
+
+        test('handles API errors gracefully without throwing', async () => {
+            const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+            mockAxiosPatch.mockRejectedValue(new Error('Circle API error'));
+
+            // Should not throw - graceful degradation
+            const result = await updateStreakFields('member123', streakData);
+
+            expect(result.success).toBe(false);
+            expect(result.error).toContain('Circle API error');
+            expect(consoleErrorSpy).toHaveBeenCalled();
+
+            consoleErrorSpy.mockRestore();
+        });
+
+        test('logs success message when all fields updated', async () => {
+            const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+            mockAxiosPatch.mockResolvedValue({
+                data: { success: true }
+            });
+
+            await updateStreakFields('member123', streakData);
+
+            expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Successfully updated all streak fields'));
+
+            consoleLogSpy.mockRestore();
+        });
+
+        test('logs streak data for audit trail', async () => {
+            const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+            mockAxiosPatch.mockResolvedValue({
+                data: { success: true }
+            });
+
+            await updateStreakFields('member123', streakData);
+
+            expect(consoleLogSpy).toHaveBeenCalledWith('Streak data:', streakData);
+
+            consoleLogSpy.mockRestore();
+        });
+
+        test('handles error response details in logs', async () => {
+            const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+
+            const error = new Error('API Error');
+            error.response = {
+                status: 400,
+                data: { message: 'Invalid custom field' }
+            };
+
+            mockAxiosPatch.mockRejectedValue(error);
+
+            await updateStreakFields('member123', streakData);
+
+            expect(consoleErrorSpy).toHaveBeenCalledWith('Response status:', 400);
+            expect(consoleErrorSpy).toHaveBeenCalledWith('Response data:', JSON.stringify({ message: 'Invalid custom field' }));
+
+            consoleErrorSpy.mockRestore();
+        });
+
+        test('handles missing custom field gracefully', async () => {
+            // First call succeeds, second fails, third succeeds
+            mockAxiosPatch
+                .mockResolvedValueOnce({ data: { success: true } })
+                .mockRejectedValueOnce(new Error('Custom field not found'))
+                .mockResolvedValueOnce({ data: { success: true } });
+
+            const result = await updateStreakFields('member123', streakData);
+
+            // Should still fail if any field fails
+            expect(result.success).toBe(false);
+        });
+
+        test('handles zero values correctly', async () => {
+            mockAxiosPatch.mockResolvedValue({
+                data: { success: true }
+            });
+
+            const zeroStreakData = {
+                currentStreak: 0,
+                longestStreak: 0,
+                lastCheckinDate: '2026-02-07'
+            };
+
+            await updateStreakFields('member123', zeroStreakData);
+
+            expect(mockAxiosPatch).toHaveBeenCalledWith(
+                '/community_members/member123',
+                { custom_fields_attributes: { currentStreak: 0 } }
+            );
+        });
+
+        test('handles very large streak numbers', async () => {
+            mockAxiosPatch.mockResolvedValue({
+                data: { success: true }
+            });
+
+            const largeStreakData = {
+                currentStreak: 999,
+                longestStreak: 999,
+                lastCheckinDate: '2026-02-07'
+            };
+
+            await updateStreakFields('member123', largeStreakData);
+
+            expect(mockAxiosPatch).toHaveBeenCalledWith(
+                '/community_members/member123',
+                { custom_fields_attributes: { currentStreak: 999 } }
+            );
+        });
+
+        test('updates fields sequentially (not parallel)', async () => {
+            const callOrder = [];
+
+            mockAxiosPatch.mockImplementation((url, data) => {
+                const fieldName = Object.keys(data.custom_fields_attributes)[0];
+                callOrder.push(fieldName);
+                return Promise.resolve({ data: { success: true } });
+            });
+
+            await updateStreakFields('member123', streakData);
+
+            // Verify calls were made sequentially (MVP approach)
+            expect(callOrder).toEqual(['currentStreak', 'longestStreak', 'lastCheckinDate']);
         });
     });
 });
