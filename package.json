@@ -1,7 +1,9 @@
 {
   "dependencies": {
     "airtable": "^0.12.2",
-    "axios": "^1.13.4"
+    "axios": "^1.13.4",
+    "date-fns": "^2.30.0",
+    "date-fns-tz": "^2.0.1"
   },
   "devDependencies": {
     "jest": "^29.7.0"

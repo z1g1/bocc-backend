@@ -161,23 +161,60 @@ const updateMemberCustomField = async (memberId, fieldName, value) => {
 };
 
 /**
- * Increment a member's check-in counter
- * @param {number|string} memberId - Circle member ID
- * @param {number} currentCount - Current check-in count (optional, fetches if not provided)
- * @returns {Promise<object>} Updated member object
+ * Get a custom field value from a Circle.so member profile
+ * @param {string|number} memberId - Circle member ID
+ * @param {string} fieldName - Custom field name (e.g., 'checkinCount')
+ * @returns {Promise<number|string|null>} Field value or null if not found
  */
-const incrementCheckinCount = async (memberId, currentCount = null) => {
+const getMemberCustomField = async (memberId, fieldName) => {
     try {
-        console.log('Incrementing check-in count for Circle member:', memberId);
+        console.log(`Fetching custom field '${fieldName}' for member:`, memberId);
 
-        // If current count not provided, we'll increment by 1 from whatever exists
-        // Circle.so might handle this automatically, or we may need to fetch first
-        const newCount = currentCount !== null ? currentCount + 1 : 1;
+        const response = await circleApi.get(`/community_members/${memberId}`);
 
-        return await updateMemberCustomField(memberId, 'checkinCount', newCount);
+        const customFields = response.data.custom_fields || {};
+        const fieldValue = customFields[fieldName];
+
+        if (fieldValue !== undefined && fieldValue !== null) {
+            console.log(`Current ${fieldName}:`, fieldValue);
+            return fieldValue;
+        }
+
+        console.log(`Custom field '${fieldName}' not found, returning null`);
+        return null;
+    } catch (error) {
+        console.error(`Error fetching custom field '${fieldName}':`, error.message);
+        if (error.response) {
+            console.error('Response status:', error.response.status);
+            console.error('Response data:', JSON.stringify(error.response.data));
+        }
+        throw error;
+    }
+};
+
+/**
+ * Increment a member's check-in counter (BUG FIXED: now fetches current value first)
+ * @param {number|string} memberId - Circle member ID
+ * @returns {Promise<void>}
+ */
+const incrementCheckinCount = async (memberId) => {
+    try {
+        // BUG FIX: Fetch current value from Circle.so
+        const currentCount = await getMemberCustomField(memberId, 'checkinCount');
+
+        // Default to 0 if field doesn't exist (new member)
+        const currentValue = currentCount || 0;
+        const newValue = currentValue + 1;
+
+        console.log(`Incrementing checkinCount for member ${memberId}: ${currentValue} → ${newValue}`);
+
+        // Update with new value
+        await updateMemberCustomField(memberId, 'checkinCount', newValue);
+
+        console.log(`Successfully incremented checkinCount to ${newValue}`);
     } catch (error) {
         console.error('Error incrementing check-in count:', error.message);
-        throw error;
+        // Don't throw - allow check-in to continue even if Circle.so fails
     }
 };
 
@@ -377,6 +414,7 @@ const deactivateMember = async (memberId) => {
 module.exports = {
     findMemberByEmail,
     createMember,
+    getMemberCustomField,
     updateMemberCustomField,
     incrementCheckinCount,
     ensureMember,

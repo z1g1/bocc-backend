@@ -12,7 +12,7 @@ jest.mock('axios', () => ({
     create: mockAxiosCreate
 }));
 
-const { findMemberByEmail, createMember, ensureMember, deactivateMember } = require('../netlify/functions/utils/circle');
+const { findMemberByEmail, createMember, ensureMember, deactivateMember, getMemberCustomField, updateMemberCustomField, incrementCheckinCount } = require('../netlify/functions/utils/circle');
 
 describe('Circle.so API Integration', () => {
     beforeEach(() => {
@@ -269,6 +269,178 @@ describe('Circle.so API Integration', () => {
             mockAxiosDelete.mockRejectedValue(error);
 
             await expect(deactivateMember('test-id')).rejects.toThrow();
+        });
+    });
+
+    describe('getMemberCustomField', () => {
+        test('fetches custom field value successfully', async () => {
+            const mockResponse = {
+                data: {
+                    id: '12345',
+                    custom_fields: {
+                        checkinCount: 5
+                    }
+                }
+            };
+
+            mockAxiosGet.mockResolvedValue(mockResponse);
+
+            const result = await getMemberCustomField('12345', 'checkinCount');
+
+            expect(result).toBe(5);
+            expect(mockAxiosGet).toHaveBeenCalledWith('/community_members/12345');
+        });
+
+        test('returns null when custom field does not exist', async () => {
+            const mockResponse = {
+                data: {
+                    id: '12345',
+                    custom_fields: {}
+                }
+            };
+
+            mockAxiosGet.mockResolvedValue(mockResponse);
+
+            const result = await getMemberCustomField('12345', 'checkinCount');
+
+            expect(result).toBeNull();
+        });
+
+        test('returns null when member has no custom_fields object', async () => {
+            const mockResponse = {
+                data: {
+                    id: '12345'
+                }
+            };
+
+            mockAxiosGet.mockResolvedValue(mockResponse);
+
+            const result = await getMemberCustomField('12345', 'checkinCount');
+
+            expect(result).toBeNull();
+        });
+
+        test('throws error when Circle.so API fails', async () => {
+            const error = new Error('Circle API error');
+            mockAxiosGet.mockRejectedValue(error);
+
+            await expect(getMemberCustomField('12345', 'checkinCount'))
+                .rejects.toThrow('Circle API error');
+        });
+    });
+
+    describe('incrementCheckinCount (bug fix)', () => {
+        const mockAxiosPatch = jest.fn();
+
+        beforeEach(() => {
+            jest.clearAllMocks();
+            // Mock the patch method for updateMemberCustomField
+            mockAxiosPatch.mockClear();
+        });
+
+        test('increments from existing value', async () => {
+            // Mock getMemberCustomField returning 5
+            mockAxiosGet.mockResolvedValue({
+                data: {
+                    id: 'member123',
+                    custom_fields: {
+                        checkinCount: 5
+                    }
+                }
+            });
+
+            // Mock updateMemberCustomField (patch call)
+            const mockAxiosCreate = require('axios').create;
+            const mockInstance = mockAxiosCreate();
+            mockInstance.patch = jest.fn().mockResolvedValue({
+                data: { success: true }
+            });
+
+            await incrementCheckinCount('member123');
+
+            // Verify getMemberCustomField was called
+            expect(mockAxiosGet).toHaveBeenCalledWith('/community_members/member123');
+        });
+
+        test('starts at 1 when current value is null (new member)', async () => {
+            // Mock getMemberCustomField returning null (no custom field)
+            mockAxiosGet.mockResolvedValue({
+                data: {
+                    id: 'member123',
+                    custom_fields: {}
+                }
+            });
+
+            const mockAxiosCreate = require('axios').create;
+            const mockInstance = mockAxiosCreate();
+            mockInstance.patch = jest.fn().mockResolvedValue({
+                data: { success: true }
+            });
+
+            await incrementCheckinCount('member123');
+
+            // Verify GET was called to fetch current value
+            expect(mockAxiosGet).toHaveBeenCalledWith('/community_members/member123');
+        });
+
+        test('starts at 1 when member has no custom_fields', async () => {
+            // Mock getMemberCustomField returning no custom_fields object
+            mockAxiosGet.mockResolvedValue({
+                data: {
+                    id: 'member123'
+                }
+            });
+
+            const mockAxiosCreate = require('axios').create;
+            const mockInstance = mockAxiosCreate();
+            mockInstance.patch = jest.fn().mockResolvedValue({
+                data: { success: true }
+            });
+
+            await incrementCheckinCount('member123');
+
+            // Verify GET was called
+            expect(mockAxiosGet).toHaveBeenCalled();
+        });
+
+        test('logs current and new values for audit trail', async () => {
+            const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
+
+            // Mock getMemberCustomField returning 10
+            mockAxiosGet.mockResolvedValue({
+                data: {
+                    id: 'member123',
+                    custom_fields: {
+                        checkinCount: 10
+                    }
+                }
+            });
+
+            const mockAxiosCreate = require('axios').create;
+            const mockInstance = mockAxiosCreate();
+            mockInstance.patch = jest.fn().mockResolvedValue({
+                data: { success: true }
+            });
+
+            await incrementCheckinCount('member123');
+
+            // Verify console.log called with current and new values
+            expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('10'));
+            expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('11'));
+
+            consoleLogSpy.mockRestore();
+        });
+
+        test('handles API errors gracefully', async () => {
+            const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+
+            // Mock getMemberCustomField throwing error
+            mockAxiosGet.mockRejectedValue(new Error('Circle API error'));
+
+            // Should not throw (graceful degradation)
+            await expect(incrementCheckinCount('member123')).resolves.not.toThrow();
+
+            consoleErrorSpy.mockRestore();
         });
     });
 });
