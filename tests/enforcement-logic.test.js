@@ -96,7 +96,7 @@ describe('Enforcement Logic - Epic 4', () => {
           id: 'rec123',
           fields: {
             'Status': 'Active',
-            'Number of Warnings': 2
+            'Number of warnings': 2
           }
         };
 
@@ -129,7 +129,7 @@ describe('Enforcement Logic - Epic 4', () => {
           id: 'rec123',
           fields: {
             'Status': 'Photo Added',
-            'Number of Warnings': 1
+            'Number of warnings': 1
           }
         };
 
@@ -163,7 +163,7 @@ describe('Enforcement Logic - Epic 4', () => {
           id: 'rec123',
           fields: {
             'Status': 'Active',
-            'Number of Warnings': 1
+            'Number of warnings': 1
           }
         };
 
@@ -182,7 +182,7 @@ describe('Enforcement Logic - Epic 4', () => {
           id: 'rec123',
           fields: {
             'Status': 'Active',
-            'Number of Warnings': 2
+            'Number of warnings': 2
           }
         };
 
@@ -201,7 +201,7 @@ describe('Enforcement Logic - Epic 4', () => {
           id: 'rec123',
           fields: {
             'Status': 'Active',
-            'Number of Warnings': 3
+            'Number of warnings': 3
           }
         };
 
@@ -222,7 +222,7 @@ describe('Enforcement Logic - Epic 4', () => {
           id: 'rec456',
           fields: {
             'Status': 'Active',
-            'Number of Warnings': 4
+            'Number of warnings': 4
           }
         };
 
@@ -243,7 +243,7 @@ describe('Enforcement Logic - Epic 4', () => {
           id: 'rec789',
           fields: {
             'Status': 'Deactivated',
-            'Number of Warnings': 5
+            'Number of warnings': 5
           }
         };
 
@@ -262,7 +262,7 @@ describe('Enforcement Logic - Epic 4', () => {
           id: 'rec999',
           fields: {
             'Status': 'Photo Added',
-            'Number of Warnings': 2
+            'Number of warnings': 2
           }
         };
 
@@ -283,7 +283,7 @@ describe('Enforcement Logic - Epic 4', () => {
           id: 'recAnomaly',
           fields: {
             'Status': 'Active',
-            'Number of Warnings': 5
+            'Number of warnings': 5
           }
         };
 
@@ -305,7 +305,7 @@ describe('Enforcement Logic - Epic 4', () => {
           id: 'recAnomaly2',
           fields: {
             'Status': 'Active',
-            'Number of Warnings': 7
+            'Number of warnings': 7
           }
         };
 
@@ -368,7 +368,7 @@ describe('Enforcement Logic - Epic 4', () => {
           fields: {
             'Name': 'Test User',
             'Email': 'test@example.com',
-            'Number of Warnings': 1,
+            'Number of warnings': 1,
             'Status': 'Active'
           }
         });
@@ -406,7 +406,7 @@ describe('Enforcement Logic - Epic 4', () => {
       const warningRecord = {
         id: 'rec123',
         fields: {
-          'Number of Warnings': 2,
+          'Number of warnings': 2,
           'Status': 'Active'
         }
       };
@@ -421,7 +421,7 @@ describe('Enforcement Logic - Epic 4', () => {
 
         incrementWarningCount.mockResolvedValue({
           id: 'rec123',
-          fields: { 'Number of Warnings': 3 }
+          fields: { 'Number of warnings': 3 }
         });
 
         const result = await processEnforcementAction(mockMember, warningRecord, action, false);
@@ -443,7 +443,7 @@ describe('Enforcement Logic - Epic 4', () => {
 
         incrementWarningCount.mockResolvedValue({
           id: 'rec123',
-          fields: { 'Number of Warnings': 4 }
+          fields: { 'Number of warnings': 4 }
         });
 
         const result = await processEnforcementAction(mockMember, warningRecord, action, false);
@@ -475,7 +475,7 @@ describe('Enforcement Logic - Epic 4', () => {
       const warningRecord = {
         id: 'rec456',
         fields: {
-          'Number of Warnings': 4,
+          'Number of warnings': 4,
           'Status': 'Active'
         }
       };
@@ -527,7 +527,7 @@ describe('Enforcement Logic - Epic 4', () => {
       const warningRecord = {
         id: 'rec789',
         fields: {
-          'Number of Warnings': 2,
+          'Number of warnings': 2,
           'Status': 'Active'
         }
       };
@@ -656,7 +656,7 @@ describe('Enforcement Logic - Epic 4', () => {
         id: 'recRecovered',
         fields: {
           'Status': 'Active',
-          'Number of Warnings': 3
+          'Number of warnings': 3
         }
       };
 
@@ -685,7 +685,7 @@ describe('Enforcement Logic - Epic 4', () => {
         id: 'recDeactivate',
         fields: {
           'Status': 'Active',
-          'Number of Warnings': 4
+          'Number of warnings': 4
         }
       };
 

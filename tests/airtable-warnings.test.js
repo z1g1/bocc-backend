@@ -69,7 +69,7 @@ describe('Airtable Warning Operations', () => {
         fields: {
           'Name': 'John Doe',
           'Email': 'john@example.com',
-          'Number of Warnings': 2,
+          'Number of warnings': 2,
           'Status': 'Active',
           'Last Warning Date': '2025-02-05'
         }
@@ -148,7 +148,7 @@ describe('Airtable Warning Operations', () => {
         fields: {
           'Name': 'Jane Smith',
           'Email': 'jane@example.com',
-          'Number of Warnings': 1,
+          'Number of warnings': 1,
           'Status': 'Active',
           'Last Warning Date': mockDate
         }
@@ -161,7 +161,7 @@ describe('Airtable Warning Operations', () => {
       expect(mockCreate).toHaveBeenCalledWith({
         'Name': 'Jane Smith',
         'Email': 'jane@example.com',
-        'Number of Warnings': 1,
+        'Number of warnings': 1,
         'Last Warning Date': mockDate,
         'Status': 'Active'
       });
@@ -195,7 +195,7 @@ describe('Airtable Warning Operations', () => {
 
       expect(mockCreate).toHaveBeenCalledWith(
         expect.objectContaining({
-          'Number of Warnings': 1
+          'Number of warnings': 1
         })
       );
 
@@ -234,14 +234,14 @@ describe('Airtable Warning Operations', () => {
       mockFind.mockResolvedValue({
         id: 'rec123',
         fields: {
-          'Number of Warnings': 1
+          'Number of warnings': 1
         }
       });
 
       mockUpdate.mockResolvedValue({
         id: 'rec123',
         fields: {
-          'Number of Warnings': 2,
+          'Number of warnings': 2,
           'Last Warning Date': mockDate
         }
       });
@@ -250,11 +250,11 @@ describe('Airtable Warning Operations', () => {
 
       expect(mockFind).toHaveBeenCalledWith('rec123');
       expect(mockUpdate).toHaveBeenCalledWith('rec123', {
-        'Number of Warnings': 2,
+        'Number of warnings': 2,
         'Last Warning Date': mockDate
       });
 
-      expect(result.fields['Number of Warnings']).toBe(2);
+      expect(result.fields['Number of warnings']).toBe(2);
 
       Date.prototype.toISOString.mockRestore();
     });
@@ -266,21 +266,21 @@ describe('Airtable Warning Operations', () => {
       mockFind.mockResolvedValue({
         id: 'rec456',
         fields: {
-          'Number of Warnings': 4
+          'Number of warnings': 4
         }
       });
 
       mockUpdate.mockResolvedValue({
         id: 'rec456',
         fields: {
-          'Number of Warnings': 5
+          'Number of warnings': 5
         }
       });
 
       await incrementWarningCount('rec456');
 
       expect(mockUpdate).toHaveBeenCalledWith('rec456', {
-        'Number of Warnings': 5,
+        'Number of warnings': 5,
         'Last Warning Date': mockDate
       });
 
@@ -294,7 +294,7 @@ describe('Airtable Warning Operations', () => {
       mockFind.mockResolvedValue({
         id: 'rec123',
         fields: {
-          'Number of Warnings': 2,
+          'Number of warnings': 2,
           'Last Warning Date': '2025-02-03'
         }
       });
@@ -302,7 +302,7 @@ describe('Airtable Warning Operations', () => {
       mockUpdate.mockResolvedValue({
         id: 'rec123',
         fields: {
-          'Number of Warnings': 3,
+          'Number of warnings': 3,
           'Last Warning Date': mockDate
         }
       });

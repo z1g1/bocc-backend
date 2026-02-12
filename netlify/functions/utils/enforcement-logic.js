@@ -177,7 +177,7 @@ const determineEnforcementAction = (member, existingWarning) => {
 
   // Case 3: Existing warning record - check status and count
   const currentStatus = existingWarning.fields['Status'];
-  const currentCount = existingWarning.fields['Number of Warnings'];
+  const currentCount = existingWarning.fields['Number of warnings'];
 
   // Case 3a: Already deactivated - skip
   if (currentStatus === 'Deactivated') {

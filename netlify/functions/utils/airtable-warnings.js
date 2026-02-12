@@ -69,7 +69,7 @@ const createWarningRecord = async (name, email) => {
     const record = await base(WARNING_TABLE_NAME).create({
       'Name': name,
       'Email': normalizedEmail,
-      'Number of Warnings': 1,
+      'Number of warnings': 1,
       'Last Warning Date': today,
       'Status': 'Active'
     });
@@ -93,14 +93,14 @@ const incrementWarningCount = async (recordId) => {
 
     // Fetch current record to get current count
     const currentRecord = await base(WARNING_TABLE_NAME).find(recordId);
-    const currentCount = currentRecord.fields['Number of Warnings'];
+    const currentCount = currentRecord.fields['Number of warnings'];
     const newCount = currentCount + 1;
     const today = new Date().toISOString().split('T')[0];
 
     console.log(`Updating warning count: ${currentCount} → ${newCount}`);
 
     const updatedRecord = await base(WARNING_TABLE_NAME).update(recordId, {
-      'Number of Warnings': newCount,
+      'Number of warnings': newCount,
       'Last Warning Date': today
     });
 
