@@ -314,3 +314,25 @@ The frontend (https://github.com/z1g1/bocc-website) contains manually created ch
 3. Set appropriate `eventId` (e.g., "bocc", "codeCoffee") to categorize the event
 4. Forms should include: email (required), name, phone, businessName, okToEmail checkbox
 5. Include `debug: "1"` in the request for testing, `debug: "0"` for production
+
+## Shared Agents and Commands Setup
+
+This project uses shared Claude Code agents and commands from the
+`z1g1/prompts` submodule located in the `prompts/` directory.
+
+Before starting work, initialize the submodule and copy agents and commands
+into the expected directories:
+
+\```bash
+# Initialize the prompts submodule if not already present
+git submodule update --init --recursive
+
+# Copy shared agents and commands to user-level Claude directories
+mkdir -p ~/.claude/agents ~/.claude/commands
+cp -r prompts/.claude/agents/* ~/.claude/agents/ 2>/dev/null || true
+cp -r prompts/.claude/commands/* ~/.claude/commands/ 2>/dev/null || true
+\```
+
+Run this setup at the start of each new Claude Code web session. Local terminal
+sessions using symlinks do not need this step.
+
