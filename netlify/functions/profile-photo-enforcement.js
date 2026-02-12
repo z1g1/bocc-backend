@@ -22,14 +22,16 @@ const {
  * Processes all members without profile photos
  *
  * @param {boolean} dryRun - If true, log actions without executing them
+ * @param {string|null} filterEmail - If set, only process this email address
  * @returns {Promise<object>} Summary report
  */
-const runEnforcement = async (dryRun = false) => {
+const runEnforcement = async (dryRun = false, filterEmail = null) => {
   const startTime = Date.now();
 
   console.log('====================================');
   console.log('Profile Photo Enforcement - Starting');
   console.log(`Mode: ${dryRun ? 'DRY RUN' : 'PRODUCTION'}`);
+  console.log(`Filter: ${filterEmail || 'none (all members)'}`);
   console.log(`Timestamp: ${new Date().toISOString()}`);
   console.log('====================================');
 
@@ -57,12 +59,22 @@ const runEnforcement = async (dryRun = false) => {
     // querying audience segments. See docs/CIRCLE_SEGMENTS_RESEARCH.md
     console.log('\nFetching all members and filtering for those without photos...');
     const members = await getMembersWithoutPhotos();
-    summary.totalMembers = members.length;
 
-    console.log(`Found ${members.length} members without profile photos\n`);
+    // Filter to specific email if provided (used by manual endpoint)
+    let filteredMembers = members;
+    if (filterEmail) {
+      filteredMembers = members.filter(
+        m => m.email && m.email.toLowerCase() === filterEmail.toLowerCase()
+      );
+      console.log(`Filtered to email "${filterEmail}": ${filteredMembers.length} match(es) from ${members.length} total`);
+    }
+
+    summary.totalMembers = filteredMembers.length;
+
+    console.log(`Found ${filteredMembers.length} members to process\n`);
 
     // Step 2: Process each member
-    for (const member of members) {
+    for (const member of filteredMembers) {
       try {
         console.log(`\nProcessing: ${member.name} (${member.email})`);
 

@@ -11,6 +11,9 @@
 // Import the shared enforcement logic
 const { runEnforcement } = require('./profile-photo-enforcement');
 
+// Manual endpoint only processes this test user to prevent accidental mass-processing
+const TEST_USER_EMAIL = 'zglicka@gmail.com';
+
 /**
  * Netlify Function Handler (HTTP-accessible)
  * Can be called manually for testing or on-demand enforcement
@@ -20,14 +23,14 @@ const { runEnforcement } = require('./profile-photo-enforcement');
  */
 exports.handler = async (event) => {
   try {
-    console.log('Manual enforcement function triggered');
+    console.log(`Manual enforcement function triggered (test user: ${TEST_USER_EMAIL})`);
 
     // Check for dryRun parameter
     const queryParams = event.queryStringParameters || {};
     const dryRun = queryParams.dryRun === 'true' || queryParams.dryRun === '1';
 
-    // Run enforcement using shared logic
-    const summary = await runEnforcement(dryRun);
+    // Run enforcement filtered to test user only
+    const summary = await runEnforcement(dryRun, TEST_USER_EMAIL);
 
     return {
       statusCode: 200,
@@ -39,6 +42,7 @@ exports.handler = async (event) => {
         success: true,
         message: 'Profile photo enforcement completed',
         mode: dryRun ? 'DRY RUN' : 'PRODUCTION',
+        testUser: TEST_USER_EMAIL,
         summary: summary
       }, null, 2)
     };
