@@ -29,17 +29,23 @@ This is a Netlify Functions backend API for Buffalo Open Coffee Club (BOCC) that
 
 **Deployment Platform:** Netlify Functions (serverless)
 - Functions are located in `netlify/functions/`
-- Single endpoint: `checkin.js` (POST handler)
+- Three functions:
+  - `checkin.js` - Main check-in POST endpoint
+  - `profile-photo-enforcement.js` - Scheduled weekly enforcement (Mondays 9:00 AM EST, configured in `netlify.toml`)
+  - `profile-photo-enforcement-manual.js` - HTTP-accessible manual trigger (supports `?dryRun=true`)
 - Deployed automatically via Netlify CI/CD
 
 **Data Storage:** Airtable
-- Two tables: `attendees` and `checkins`
+- Three tables: `attendees`, `checkins`, and `No Photo Warnings`
 - `attendees` table: Stores unique attendees by email
   - Fields: email, attendeeID, name, phone, businessName, okToEmail, debug
   - Rollup field: Checkins (count of check-ins for this attendee)
 - `checkins` table: Stores individual check-in events
   - Fields: id, checkinDate, eventId, Attendee (linked), email, name, phone, businessName, token, debug
   - `eventId` examples: "bocc" (regular meetings), "codeCoffee", or other event identifiers
+- `No Photo Warnings` table: Tracks progressive warnings for profile photo enforcement
+  - Fields: Email, Name, WarningCount, Status, LastWarningDate, CreatedDate, MemberID, Notes
+  - See `docs/AIRTABLE_SCHEMA_PHOTO_WARNINGS.md` for full schema
 
 **Community Platform:** Circle.so
 - Third-party community platform for member engagement
@@ -48,7 +54,9 @@ This is a Netlify Functions backend API for Buffalo Open Coffee Club (BOCC) that
 - Circle workflows can trigger automated rewards based on check-in count
 - Invitations are non-blocking (don't fail check-in if Circle API fails)
 - Only non-debug check-ins trigger Circle invitations and counter updates
-- API v2 integration via `netlify/functions/utils/circle.js`
+- Admin API v2 integration via `netlify/functions/utils/circle.js`
+- Headless Auth API integration via `netlify/functions/utils/circle-member-api.js` (bot user DMs)
+- **Important limitation:** Circle.so Admin API v2 does NOT expose audience segments via API; the codebase uses client-side filtering of all members instead (see `docs/CIRCLE_SEGMENTS_RESEARCH.md`)
 
 **Module System:** CommonJS (require/module.exports)
 - Project uses CommonJS syntax, not ES modules
@@ -68,7 +76,8 @@ This is a Netlify Functions backend API for Buffalo Open Coffee Club (BOCC) that
 Required environment variables (set in Netlify dashboard):
 - `AIRTABLE_API_KEY` - Airtable API key for authentication
 - `AIRTABLE_BASE_ID` - Base ID for the BOCC Airtable database
-- `CIRCLE_API_TOKEN` - Circle.so Admin API v2 token for member invitations
+- `CIRCLE_API_TOKEN` - Circle.so Admin API v2 token for member invitations and photo enforcement
+- `CIRCLE_HEADLESS_API` - Circle.so Headless Auth API token for bot user DMs (profile photo warnings)
 
 Optional environment variables:
 - `ALLOWED_ORIGIN` - CORS allowed origin (defaults to `*` for development, set to frontend domain in production)
@@ -84,23 +93,22 @@ Optional environment variables:
 bocc-backend/
 ├── netlify/
 │   └── functions/
-│       ├── checkin.js           # Main API endpoint handler
+│       ├── checkin.js                        # Main check-in API endpoint (POST)
+│       ├── profile-photo-enforcement.js      # Scheduled weekly enforcement function
+│       ├── profile-photo-enforcement-manual.js # Manual/on-demand enforcement trigger
 │       └── utils/
-│           ├── airtable.js      # Airtable client and database operations
-│           ├── circle.js        # Circle.so API client (Admin API v2)
-│           └── validation.js    # Input validation and sanitization utilities
-├── tests/
-│   ├── checkin.test.js          # Unit tests for checkin handler
-│   ├── circle.test.js           # Unit tests for Circle.so API integration
-│   ├── deduplication.test.js    # Unit tests for duplicate check-in detection
-│   ├── validation.test.js       # Unit tests for validation utilities
-│   ├── smoke-test.sh            # End-to-end API smoke test script (includes dedup test)
-│   ├── manual-dedup-test.sh     # Manual testing script for deduplication scenarios
-│   └── start-local-test.sh      # Automated local testing script
-├── netlify.toml                 # Netlify configuration (CORS headers)
-├── package.json                 # Dependencies (airtable SDK, axios, jest)
-├── CIRCLE_PERMISSIONS.md        # Circle.so API permissions documentation
-└── README.md                    # Project documentation
+│           ├── airtable.js                   # Airtable client for attendees/checkins tables
+│           ├── airtable-warnings.js          # Airtable client for No Photo Warnings table
+│           ├── circle.js                     # Circle.so Admin API v2 client
+│           ├── circle-member-api.js          # Circle.so Headless Auth API (bot DMs, JWT auth)
+│           ├── enforcement-logic.js          # Warning decision engine and action processor
+│           ├── message-templates.js          # TipTap JSON message formatting for Circle DMs
+│           └── validation.js                 # Input validation and sanitization
+├── tests/                                    # Jest unit tests + shell smoke tests
+│   └── integration/                          # Integration tests (require RUN_INTEGRATION_TESTS=true)
+├── docs/                                     # Epic/story documentation and architecture decisions
+├── netlify.toml                              # Netlify config (CORS headers, scheduled function cron)
+└── package.json                              # Dependencies: airtable, axios; devDeps: jest
 ```
 
 ## Development
@@ -124,8 +132,14 @@ netlify dev
 
 **Testing:**
 ```bash
-# Run Jest unit tests (143 tests covering validation, checkin, deduplication, and Circle.so)
+# Run all Jest unit tests (~219 tests across 10 test suites)
 npm test
+
+# Run only unit tests (excludes integration tests)
+npm run test:unit
+
+# Run integration tests (requires real API tokens)
+npm run test:integration
 
 # Run automated local smoke test (starts server, tests API with dedup, cleans up)
 npm run test:smoke-local
@@ -133,11 +147,11 @@ npm run test:smoke-local
 # Run production smoke test (tests deployed API with debug flag)
 npm run test:smoke-prod
 
-# Manual smoke test (requires Netlify dev running in another terminal)
-API_URL=http://localhost:8888/.netlify/functions/checkin bash tests/smoke-test.sh
+# Run a single test file
+npx jest tests/checkin.test.js
 
-# Manual deduplication testing (5 test scenarios)
-API_URL=http://localhost:8888/.netlify/functions/checkin bash tests/manual-dedup-test.sh
+# Run tests matching a pattern
+npx jest --testNamePattern "duplicate"
 ```
 
 **Testing the API:**
@@ -189,16 +203,28 @@ All database operations are in `netlify/functions/utils/airtable.js`:
 - `createCheckinEntry(attendeeId, eventId, debug, token)` - Create check-in record
 - `findExistingCheckin(attendeeId, eventId, token)` - Check for duplicate check-in on same day (returns existing check-in or null)
 
-**Circle.so API Operations:**
-All Circle.so API operations are in `netlify/functions/utils/circle.js`:
+**Circle.so Admin API Operations** (`netlify/functions/utils/circle.js`):
 - `findMemberByEmail(email)` - Search for Circle member by email (case-insensitive)
 - `createMember(email, name)` - Create/invite new Circle community member
-- `ensureMember(email, name)` - Find existing or create new member (idempotent operation)
-- `updateMemberCustomField(memberId, fieldName, value)` - Update any custom field on member profile
-- `incrementCheckinCount(memberId, currentCount)` - Increment check-in counter (for engagement rewards)
-- Uses Admin API v2 at `https://app.circle.so/api/admin/v2`
-- Authentication: Bearer token via `CIRCLE_API_TOKEN` environment variable
-- All operations include comprehensive error handling and logging
+- `ensureMember(email, name)` - Find existing or create new member (idempotent)
+- `updateMemberCustomField(memberId, fieldName, value)` - Update custom field on member profile
+- `incrementCheckinCount(memberId, currentCount)` - Increment check-in counter
+- `getMembersWithoutPhotos()` - Fetch all members, filter client-side for missing photos
+- `deactivateMember(memberId)` - Deactivate a member account
+- Uses Admin API v2 at `https://app.circle.so/api/admin/v2`, auth via `CIRCLE_API_TOKEN`
+
+**Circle.so Headless Auth API** (`netlify/functions/utils/circle-member-api.js`):
+- Sends DMs from a bot user ("716.social Bot") for automated warnings
+- Uses JWT authentication via `CIRCLE_HEADLESS_API` token
+- Bot User ID: `73e5a590`, Admin Member ID: `2d8e9215`
+
+**Profile Photo Enforcement** (`netlify/functions/utils/enforcement-logic.js`):
+- Progressive warning system: warnings 1-4 send DMs, warning 5 deactivates account
+- `determineEnforcementAction(warningRecord)` - Decides what action to take
+- `processEnforcementAction(action, member, dryRun)` - Executes the action
+- Safety limits: 500-member warning threshold (logs warning), 1000-member hard cap (aborts)
+- Warning tracking via Airtable `No Photo Warnings` table (`airtable-warnings.js`)
+- DM messages formatted as TipTap JSON (`message-templates.js`)
 
 **Input Validation:**
 All validation functions are in `netlify/functions/utils/validation.js`:
@@ -238,6 +264,13 @@ All validation functions are in `netlify/functions/utils/validation.js`:
 4. Update `createCheckinEntry()` in `netlify/functions/utils/airtable.js`
 5. Add unit tests to `tests/validation.test.js` and `tests/checkin.test.js`
 
+**Modifying profile photo enforcement:**
+1. Warning message content: `netlify/functions/utils/message-templates.js` (TipTap JSON format required by Circle.so)
+2. Warning thresholds or actions: `netlify/functions/utils/enforcement-logic.js`
+3. Schedule timing: `netlify.toml` `[functions."profile-photo-enforcement"]` cron expression
+4. Manual testing: call `profile-photo-enforcement-manual` endpoint with `?dryRun=true`
+5. Airtable warning records: `netlify/functions/utils/airtable-warnings.js`
+
 **Debugging production issues:**
 1. Check Netlify function logs in Netlify dashboard
 2. Verify environment variables are set correctly
@@ -246,8 +279,7 @@ All validation functions are in `netlify/functions/utils/validation.js`:
 
 ## Known Limitations & Future Improvements
 
-From README.md, planned improvements include:
-- ~~Add validation for email format and phone number format~~ ✅ Completed
+Planned improvements:
 - Display check-in confirmation back to user with edit option
 - Add privacy policy and data deletion capability
 - Implement proper dev/staging/main branch workflow instead of pushing directly to production
@@ -255,10 +287,9 @@ From README.md, planned improvements include:
 ## Testing Strategy
 
 **Unit Tests:**
-- 124+ Jest tests covering validation utilities and checkin handler
-- Run with `npm test`
-- Tests include edge cases, security scenarios, and error handling
-- Located in `tests/validation.test.js` and `tests/checkin.test.js`
+- ~219 Jest tests across 10 test suites covering checkin, validation, deduplication, Circle.so, enforcement logic, message templates, airtable warnings, and member API
+- Run with `npm test` (all) or `npm run test:unit` (exclude integration)
+- Integration tests in `tests/integration/` require `RUN_INTEGRATION_TESTS=true` and real API tokens
 
 **Smoke Tests:**
 - End-to-end tests that verify API functionality with real HTTP requests
