@@ -12,7 +12,7 @@
 const axios = require('axios');
 
 // Circle.so API configuration
-const HEADLESS_API_BASE_URL = 'https://api-headless.circle.so';
+const HEADLESS_API_BASE_URL = 'https://app.circle.so';
 const AUTH_API_BASE_URL = 'https://app.circle.so/api/v1/headless';
 const CIRCLE_HEADLESS_API_TOKEN = process.env.CIRCLE_HEADLESS_API;
 
