@@ -19,7 +19,8 @@ const CIRCLE_HEADLESS_API_TOKEN = process.env.CIRCLE_HEADLESS_API;
 console.log('Circle Headless API Token:', CIRCLE_HEADLESS_API_TOKEN ? 'Exists' : 'Not set');
 
 // Bot user configuration
-const BOT_USER_ID = '73e5a590'; // 716.social Bot
+const BOT_USER_ID = '73e5a590'; // 716.social Bot URL slug
+const BOT_USER_EMAIL = 'bocc-bot@zackglick.com'; // Used for Auth API (JWT generation)
 const BOT_USER_NAME = '716.social Bot';
 
 /**
@@ -60,14 +61,14 @@ const createMemberApi = (jwtToken) => {
  */
 const getBotUserJWT = async () => {
   try {
-    console.log('Generating JWT token for bot user:', BOT_USER_ID);
+    console.log('Generating JWT token for bot user:', BOT_USER_EMAIL);
 
     const authApi = createAuthApi();
 
     // POST /api/v1/headless/auth_token
-    // Body: { community_member_id: "73e5a590" }
+    // Body: { email: "bocc-bot@zackglick.com" }
     const response = await authApi.post('/auth_token', {
-      community_member_id: BOT_USER_ID
+      email: BOT_USER_EMAIL
     });
 
     if (!response.data || !response.data.access_token) {
@@ -303,5 +304,6 @@ module.exports = {
   sendDirectMessage,
   // Export constants for testing
   BOT_USER_ID,
+  BOT_USER_EMAIL,
   BOT_USER_NAME
 };
