@@ -13,7 +13,7 @@ const axios = require('axios');
 
 // Circle.so API configuration
 const HEADLESS_API_BASE_URL = 'https://api-headless.circle.so';
-const AUTH_API_BASE_URL = 'https://api.circle.so/api/auth/v1';
+const AUTH_API_BASE_URL = 'https://app.circle.so/api/v1/headless';
 const CIRCLE_HEADLESS_API_TOKEN = process.env.CIRCLE_HEADLESS_API;
 
 console.log('Circle Headless API Token:', CIRCLE_HEADLESS_API_TOKEN ? 'Exists' : 'Not set');
@@ -64,9 +64,9 @@ const getBotUserJWT = async () => {
 
     const authApi = createAuthApi();
 
-    // POST /api/auth/v1/members
+    // POST /api/v1/headless/auth_token
     // Body: { community_member_id: "73e5a590" }
-    const response = await authApi.post('/members', {
+    const response = await authApi.post('/auth_token', {
       community_member_id: BOT_USER_ID
     });
 
