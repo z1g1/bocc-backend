@@ -321,16 +321,8 @@ const processEnforcementAction = async (member, warningRecord, action, dryRun = 
         break;
 
       case 'DEACTIVATE':
-        // Send deactivation notice DM first (before deactivation)
-        try {
-          await sendWarningDM(member, 5); // Level 5 = deactivation notice
-          result.executedActions.push('SENT_DEACTIVATION_NOTICE');
-        } catch (dmError) {
-          console.error('Deactivation DM send failed (non-blocking):', dmError.message);
-          result.errors.push(`Deactivation DM failed: ${dmError.message}`);
-        }
-
         // Deactivate member (blocking - must succeed)
+        // No DM sent at deactivation — final warning (level 4) was the last message
         await deactivateMember(member.id);
         result.executedActions.push('DEACTIVATED_MEMBER');
 

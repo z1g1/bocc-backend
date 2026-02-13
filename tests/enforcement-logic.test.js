@@ -496,7 +496,6 @@ describe('Enforcement Logic - Epic 4', () => {
         const result = await processEnforcementAction(mockMember, warningRecord, action, false);
 
         expect(result.success).toBe(true);
-        expect(result.executedActions).toContain('SENT_DEACTIVATION_NOTICE');
         expect(result.executedActions).toContain('DEACTIVATED_MEMBER');
         expect(result.executedActions).toContain('UPDATED_STATUS_DEACTIVATED');
         expect(result.executedActions).toContain('NOTIFIED_ADMIN');

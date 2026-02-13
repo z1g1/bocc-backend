@@ -2,15 +2,15 @@
  * Unit tests for Message Templates
  * Tests TipTap JSON generation for Circle.so DM integration
  *
- * TASK-81: Test Message Template Generation (subset of JWT token tests task)
  * Epic 4: Profile Photo Enforcement System
  */
 
 const {
   textToTipTap,
-  standardWarning,
+  warning1,
+  warning2,
+  warning3,
   finalWarning,
-  deactivationNotice,
   thankYouMessage,
   adminAlert,
   getWarningMessage
@@ -88,6 +88,53 @@ describe('Message Templates - TipTap JSON Generation', () => {
       });
     });
 
+    it('should convert *italic* text to marked text nodes', () => {
+      const result = textToTipTap('This is *italic* text');
+
+      const paragraph = result.body.content[0];
+      expect(paragraph.content).toHaveLength(3);
+
+      expect(paragraph.content[0]).toEqual({ type: 'text', text: 'This is ' });
+      expect(paragraph.content[1]).toEqual({
+        type: 'text',
+        marks: [{ type: 'italic' }],
+        text: 'italic'
+      });
+      expect(paragraph.content[2]).toEqual({ type: 'text', text: ' text' });
+    });
+
+    it('should handle multiple italic sections in one line', () => {
+      const result = textToTipTap('*first* and *second* italic');
+
+      const paragraph = result.body.content[0];
+      expect(paragraph.content[0]).toEqual({
+        type: 'text',
+        marks: [{ type: 'italic' }],
+        text: 'first'
+      });
+      expect(paragraph.content[2]).toEqual({
+        type: 'text',
+        marks: [{ type: 'italic' }],
+        text: 'second'
+      });
+    });
+
+    it('should handle **bold** and *italic* in the same line', () => {
+      const result = textToTipTap('**bold** and *italic* text');
+
+      const paragraph = result.body.content[0];
+      expect(paragraph.content[0]).toEqual({
+        type: 'text',
+        marks: [{ type: 'bold' }],
+        text: 'bold'
+      });
+      expect(paragraph.content[2]).toEqual({
+        type: 'text',
+        marks: [{ type: 'italic' }],
+        text: 'italic'
+      });
+    });
+
     it('should convert [text](url) links to TipTap link marks', () => {
       const result = textToTipTap('Visit [our site](https://example.com) today');
 
@@ -149,71 +196,139 @@ describe('Message Templates - TipTap JSON Generation', () => {
     });
   });
 
-  describe('standardWarning - Warnings 1-3', () => {
-    it('should generate warning message for level 1', () => {
-      const result = standardWarning('John', 1, 4);
+  describe('warning1 - "The Introduction" (Week 1)', () => {
+    it('should include member name and robot personality', () => {
+      const result = warning1('John');
 
-      expect(result.body.type).toBe('doc');
-      expect(result.body.content).toBeInstanceOf(Array);
-      expect(result.body.content.length).toBeGreaterThan(0);
-
-      // Verify structure
-      const firstParagraph = result.body.content[0];
-      expect(firstParagraph.type).toBe('paragraph');
-      expect(firstParagraph.content).toBeInstanceOf(Array);
-
-      // Verify content includes member name
       const fullText = JSON.stringify(result);
       expect(fullText).toContain('John');
-      expect(fullText).toContain('#1');
-      expect(fullText).toContain('4');
+      expect(fullText).toContain('Beep boop');
+      expect(fullText).toContain('🤖');
     });
 
-    it('should generate warning message for level 2', () => {
-      const result = standardWarning('Jane', 2, 3);
+    it('should be reminder 1 of 4 with 3 remaining', () => {
+      const result = warning1('Test');
 
       const fullText = JSON.stringify(result);
-      expect(fullText).toContain('Jane');
-      expect(fullText).toContain('#2');
-      expect(fullText).toContain('3');
+      expect(fullText).toContain('reminder 1 of 4');
+      expect(fullText).toContain('3 more reminders');
     });
 
-    it('should generate warning message for level 3', () => {
-      const result = standardWarning('Bob', 3, 2);
+    it('should include self-deprecating humor', () => {
+      const result = warning1('Test');
 
       const fullText = JSON.stringify(result);
-      expect(fullText).toContain('Bob');
-      expect(fullText).toContain('#3');
-      expect(fullText).toContain('2');
+      expect(fullText).toContain('I timed it');
+      expect(fullText).toContain('End transmission');
+    });
+
+    it('should include community guidelines link', () => {
+      const result = warning1('Test');
+
+      const fullText = JSON.stringify(result);
+      expect(fullText).toContain('https://www.716.social/coc');
+    });
+
+    it('should include admin help form link', () => {
+      const result = warning1('Test');
+
+      const fullText = JSON.stringify(result);
+      expect(fullText).toContain('https://forms.gle/y5itkP1Ax7TdiSQD6');
     });
 
     it('should include 716.social branding', () => {
-      const result = standardWarning('Test', 1, 4);
+      const result = warning1('Test');
 
       const fullText = JSON.stringify(result);
       expect(fullText).toContain('716.social');
     });
 
-    it('should include profile photo explanation', () => {
-      const result = standardWarning('Test', 1, 4);
+    it('should mention profile photo', () => {
+      const result = warning1('Test');
 
       const fullText = JSON.stringify(result);
       expect(fullText).toContain('profile photo');
     });
   });
 
-  describe('finalWarning - Warning 4', () => {
-    it('should generate final warning with urgency markers', () => {
+  describe('warning2 - "The Persistent One" (Week 2)', () => {
+    it('should include member name and Round 2 opener', () => {
+      const result = warning2('Jane');
+
+      const fullText = JSON.stringify(result);
+      expect(fullText).toContain('Jane');
+      expect(fullText).toContain('Round 2');
+    });
+
+    it('should be reminder 2 of 4 with 2 remaining', () => {
+      const result = warning2('Test');
+
+      const fullText = JSON.stringify(result);
+      expect(fullText).toContain('Reminder 2 of 4');
+      expect(fullText).toContain('2 left');
+    });
+
+    it('should include confident humor', () => {
+      const result = warning2('Test');
+
+      const fullText = JSON.stringify(result);
+      expect(fullText).toContain('very');
+      expect(fullText).toContain('literally the only thing I do');
+    });
+
+    it('should include community guidelines and help links', () => {
+      const result = warning2('Test');
+
+      const fullText = JSON.stringify(result);
+      expect(fullText).toContain('https://www.716.social/coc');
+      expect(fullText).toContain('https://forms.gle/y5itkP1Ax7TdiSQD6');
+    });
+  });
+
+  describe('warning3 - "The Serious One" (Week 3)', () => {
+    it('should include member name and serious tone', () => {
+      const result = warning3('Bob');
+
+      const fullText = JSON.stringify(result);
+      expect(fullText).toContain('Bob');
+      expect(fullText).toContain('getting real');
+    });
+
+    it('should be reminder 3 of 4', () => {
+      const result = warning3('Test');
+
+      const fullText = JSON.stringify(result);
+      expect(fullText).toContain('Reminder 3 of 4');
+    });
+
+    it('should include one small joke then serious', () => {
+      const result = warning3('Test');
+
+      const fullText = JSON.stringify(result);
+      expect(fullText).toContain('see');
+      expect(fullText).toContain('Please add a photo now');
+    });
+
+    it('should include community guidelines and help links', () => {
+      const result = warning3('Test');
+
+      const fullText = JSON.stringify(result);
+      expect(fullText).toContain('https://www.716.social/coc');
+      expect(fullText).toContain('https://forms.gle/y5itkP1Ax7TdiSQD6');
+    });
+  });
+
+  describe('finalWarning - "The Goodbye" (Week 4)', () => {
+    it('should include member name and urgency markers', () => {
       const result = finalWarning('Alice', 'next Monday');
 
       const fullText = JSON.stringify(result);
       expect(fullText).toContain('Alice');
-      expect(fullText).toContain('FINAL WARNING');
       expect(fullText).toContain('🚨');
-      expect(fullText).toContain('next Monday');
+      expect(fullText).toContain('final warning');
     });
 
-    it('should include deactivation timeline', () => {
+    it('should include next check date for deactivation timeline', () => {
       const result = finalWarning('Test', 'February 10th');
 
       const fullText = JSON.stringify(result);
@@ -221,74 +336,98 @@ describe('Message Templates - TipTap JSON Generation', () => {
       expect(fullText).toContain('deactivated');
     });
 
-    it('should include actionable steps', () => {
+    it('should include minimal robot personality', () => {
       const result = finalWarning('Test', 'next week');
 
       const fullText = JSON.stringify(result);
-      expect(fullText).toContain('TO AVOID DEACTIVATION');
-      expect(fullText).toContain('profile settings');
+      expect(fullText).toContain('One last beep boop');
+      expect(fullText).toContain('🤖');
     });
 
-    it('should include admin contact info', () => {
+    it('should include reactivation instructions', () => {
       const result = finalWarning('Test', 'next Monday');
 
       const fullText = JSON.stringify(result);
       expect(fullText).toContain('https://forms.gle/y5itkP1Ax7TdiSQD6');
+      expect(fullText).toContain('back in');
+    });
+
+    it('should include community guidelines link', () => {
+      const result = finalWarning('Test', 'next Monday');
+
+      const fullText = JSON.stringify(result);
+      expect(fullText).toContain('https://www.716.social/coc');
     });
   });
 
-  describe('deactivationNotice - Warning 5', () => {
-    it('should generate deactivation notice with rejoin instructions', () => {
-      const result = deactivationNotice('Charlie', 'circle@zackglick.com');
-
-      const fullText = JSON.stringify(result);
-      expect(fullText).toContain('Charlie');
-      expect(fullText).toContain('deactivated');
-      expect(fullText).toContain('circle@zackglick.com');
-    });
-
-    it('should include rejoin process steps', () => {
-      const result = deactivationNotice('Test', 'admin@example.com');
-
-      const fullText = JSON.stringify(result);
-      expect(fullText).toContain('TO REJOIN');
-      expect(fullText).toContain('Contact us');
-      expect(fullText).toContain('admin@example.com');
-    });
-
-    it('should have apologetic but firm tone', () => {
-      const result = deactivationNotice('Test', 'admin@example.com');
-
-      const fullText = JSON.stringify(result);
-      expect(fullText).toContain('sorry');
-      expect(fullText).toContain('policy');
-    });
-  });
-
-  describe('thankYouMessage - Photo Added', () => {
-    it('should generate positive thank you message', () => {
+  describe('thankYouMessage - "The Celebration"', () => {
+    it('should include member name and celebration', () => {
       const result = thankYouMessage('Emma');
 
       const fullText = JSON.stringify(result);
       expect(fullText).toContain('Emma');
-      expect(fullText).toContain('Thanks');
       expect(fullText).toContain('🎉');
+      expect(fullText).toContain('BEEP BOOP BEEP BOOP');
+    });
+
+    it('should include full robot personality return', () => {
+      const result = thankYouMessage('Test');
+
+      const fullText = JSON.stringify(result);
+      expect(fullText).toContain('thrilled');
+      expect(fullText).toContain('Happy beep boop');
+      expect(fullText).toContain('🤖');
     });
 
     it('should include community encouragement', () => {
       const result = thankYouMessage('Test');
 
       const fullText = JSON.stringify(result);
-      expect(fullText).toContain('community');
-      expect(fullText).toContain('welcoming');
+      expect(fullText).toContain('716.social community');
+      expect(fullText).toContain('face to the name');
     });
 
-    it('should have warm, positive tone', () => {
+    it('should include humor about photo detection', () => {
       const result = thankYouMessage('Test');
 
       const fullText = JSON.stringify(result);
-      expect(fullText).toContain('appreciate');
-      expect(fullText).toContain('Keep engaging');
+      expect(fullText).toContain('photo-detection algorithm');
+      expect(fullText).toContain('👍👍');
+    });
+  });
+
+  describe('Story Arc - Messages produce distinct output', () => {
+    it('should produce unique messages for all 4 warning levels', () => {
+      const messages = [
+        JSON.stringify(warning1('Test')),
+        JSON.stringify(warning2('Test')),
+        JSON.stringify(warning3('Test')),
+        JSON.stringify(finalWarning('Test', 'next Monday'))
+      ];
+
+      const unique = new Set(messages);
+      expect(unique.size).toBe(4);
+    });
+
+    it('should have personality markers unique to each message', () => {
+      const w1 = JSON.stringify(warning1('Test'));
+      const w2 = JSON.stringify(warning2('Test'));
+      const w3 = JSON.stringify(warning3('Test'));
+      const w4 = JSON.stringify(finalWarning('Test', 'next Monday'));
+
+      // Warning 1 unique markers
+      expect(w1).toContain('Beep boop');
+      expect(w1).toContain('End transmission');
+
+      // Warning 2 unique markers
+      expect(w2).toContain('Round 2');
+      expect(w2).toContain('literally the only thing I do');
+
+      // Warning 3 unique markers
+      expect(w3).toContain('getting real');
+
+      // Warning 4 unique markers
+      expect(w4).toContain('One last beep boop');
     });
   });
 
@@ -353,67 +492,63 @@ describe('Message Templates - TipTap JSON Generation', () => {
   });
 
   describe('getWarningMessage - Convenience Function', () => {
-    it('should return standard warning for level 1', () => {
+    it('should return warning1 for level 1', () => {
       const result = getWarningMessage('John', 1);
 
       const fullText = JSON.stringify(result);
       expect(fullText).toContain('John');
-      expect(fullText).toContain('#1');
+      expect(fullText).toContain('Beep boop');
+      expect(fullText).toContain('reminder 1 of 4');
     });
 
-    it('should return standard warning for level 2', () => {
+    it('should return warning2 for level 2', () => {
       const result = getWarningMessage('Jane', 2);
 
       const fullText = JSON.stringify(result);
-      expect(fullText).toContain('#2');
+      expect(fullText).toContain('Round 2');
+      expect(fullText).toContain('Reminder 2 of 4');
     });
 
-    it('should return standard warning for level 3', () => {
+    it('should return warning3 for level 3', () => {
       const result = getWarningMessage('Bob', 3);
 
       const fullText = JSON.stringify(result);
-      expect(fullText).toContain('#3');
+      expect(fullText).toContain('getting real');
+      expect(fullText).toContain('Reminder 3 of 4');
     });
 
     it('should return final warning for level 4', () => {
       const result = getWarningMessage('Alice', 4, 'March 1st');
 
       const fullText = JSON.stringify(result);
-      expect(fullText).toContain('FINAL WARNING');
+      expect(fullText).toContain('final warning');
       expect(fullText).toContain('March 1st');
     });
 
-    it('should return deactivation notice for level 5', () => {
-      const result = getWarningMessage('Charlie', 5, 'unused', 'admin@test.com');
-
-      const fullText = JSON.stringify(result);
-      expect(fullText).toContain('deactivated');
-      expect(fullText).toContain('admin@test.com');
+    it('should throw error for level 5 (no deactivation DM)', () => {
+      expect(() => getWarningMessage('Charlie', 5)).toThrow('Invalid warning level: 5');
     });
 
-    it('should throw error for invalid warning level', () => {
+    it('should throw error for invalid warning levels', () => {
       expect(() => getWarningMessage('Test', 0)).toThrow('Invalid warning level: 0');
       expect(() => getWarningMessage('Test', 6)).toThrow('Invalid warning level: 6');
       expect(() => getWarningMessage('Test', -1)).toThrow('Invalid warning level');
     });
 
-    it('should use default values for nextCheckDate and adminEmail', () => {
-      const result4 = getWarningMessage('Test', 4);
-      const fullText4 = JSON.stringify(result4);
-      expect(fullText4).toContain('next Monday');
-
-      const result5 = getWarningMessage('Test', 5);
-      const fullText5 = JSON.stringify(result5);
-      expect(fullText5).toContain('circle@zackglick.com');
+    it('should use default nextCheckDate for level 4', () => {
+      const result = getWarningMessage('Test', 4);
+      const fullText = JSON.stringify(result);
+      expect(fullText).toContain('next Monday');
     });
   });
 
   describe('TipTap JSON Structure Validation', () => {
     it('should have valid root structure for all message types', () => {
       const messages = [
-        standardWarning('Test', 1, 4),
+        warning1('Test'),
+        warning2('Test'),
+        warning3('Test'),
         finalWarning('Test', 'tomorrow'),
-        deactivationNotice('Test', 'admin@test.com'),
         thankYouMessage('Test'),
         adminAlert('FINAL_WARNING', 'Test', 'test@test.com', 4, '123', '')
       ];
@@ -427,7 +562,7 @@ describe('Message Templates - TipTap JSON Generation', () => {
     });
 
     it('should have valid paragraph nodes', () => {
-      const result = standardWarning('Test', 1, 4);
+      const result = warning1('Test');
 
       result.body.content.forEach(node => {
         expect(node.type).toBe('paragraph');

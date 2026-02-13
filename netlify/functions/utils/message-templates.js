@@ -5,13 +5,14 @@
  * Epic 4: Profile Photo Enforcement System
  * STORY-14: Member API DM Integration
  *
- * Note: These are temporary templates using example copy from docs/MESSAGE_TEMPLATES_EPIC_4.md
- * User should customize these messages for production use
+ * Story arc: A quirky self-aware robot whose personality dims as urgency rises
+ * (messages 1-4), then snaps back to full brightness when photo is added (message 5).
+ * Copy from docs/716-bot-final-messaging.md
  */
 
 /**
  * Convert plain text with basic formatting to TipTap JSON
- * Supports: paragraphs, **bold**, line breaks
+ * Supports: paragraphs, **bold**, *italic*, [links](url), line breaks
  *
  * @param {string} text - Plain text with markdown-style formatting
  * @returns {object} TipTap JSON structure
@@ -28,8 +29,8 @@ const textToTipTap = (text) => {
         lineContent.push({ type: 'hardBreak' });
       }
 
-      // Parse bold (**text**) and markdown links ([text](url))
-      const parts = line.split(/(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g);
+      // Parse **bold**, *italic*, and markdown links [text](url)
+      const parts = line.split(/(\*\*[^*]+\*\*|\*[^*]+\*|\[[^\]]+\]\([^)]+\))/g);
       parts.forEach(part => {
         if (part.startsWith('**') && part.endsWith('**')) {
           // Bold text
@@ -37,6 +38,13 @@ const textToTipTap = (text) => {
             type: 'text',
             marks: [{ type: 'bold' }],
             text: part.slice(2, -2)
+          });
+        } else if (part.startsWith('*') && part.endsWith('*')) {
+          // Italic text
+          lineContent.push({
+            type: 'text',
+            marks: [{ type: 'italic' }],
+            text: part.slice(1, -1)
           });
         } else if (/^\[[^\]]+\]\([^)]+\)$/.test(part)) {
           // Markdown link [text](url) → TipTap link mark
@@ -77,97 +85,115 @@ const textToTipTap = (text) => {
 };
 
 /**
- * Standard Warning (Warnings 1-3)
- * @param {string} memberName - Member's first name or display name
- * @param {number} warningNumber - Current warning number (1, 2, or 3)
- * @param {number} warningsRemaining - Warnings remaining before final warning (4, 3, or 2)
+ * Warning 1 — "The Introduction" (Week 1)
+ * High humor, robot bookends, self-deprecating
+ * @param {string} memberName - Member's display name
  * @returns {object} TipTap JSON message
  */
-const standardWarning = (memberName, warningNumber, warningsRemaining) => {
-  const text = `Hi ${memberName},
+const warning1 = (memberName) => {
+  const text = `🤖 *Beep boop!* Hey ${memberName},
 
-We noticed you haven't added a profile photo to your 716.social account yet. Profile photos help build community trust and make our space more welcoming for everyone. Having a profile photo is a part of our [community guidelines](https://www.716.social/coc).
+So, fun fact — I'm a robot and even *I* have a profile photo. Just saying. 👀
 
-This is reminder **#${warningNumber}** out of 4 before we need to temporarily deactivate accounts without photos. You have **${warningsRemaining}** more reminders before a final warning.
+We noticed your 716.social profile is still rocking the default avatar. Profile photos are a big deal around here — they help build trust and make our community feel more like, well, a community. They're also part of our [community guidelines](https://www.716.social/coc).
 
-Adding a photo is easy: just go to your profile settings and upload an image. If you have any questions or need help please contact the admin team via this [form](https://forms.gle/y5itkP1Ax7TdiSQD6) and we will be in touch.
+No rush panic — this is just **reminder 1 of 4**. But heads up: accounts without photos do eventually get temporarily deactivated. You've got **3 more reminders** before that happens.
 
-Thanks for being part of our community!
-— The 716.social Team`;
+Just pop over to your profile settings and upload any photo. It takes about 12 seconds. (I timed it. Because I'm a robot. That's what we do.)
+
+Need help? Reach the admin team via this [form](https://forms.gle/y5itkP1Ax7TdiSQD6).
+
+*End transmission* 📡
+— 716.social Bot`;
 
   return textToTipTap(text);
 };
 
 /**
- * Final Warning (Warning 4)
- * @param {string} memberName - Member's first name or display name
- * @param {string} nextCheckDate - Date of next enforcement run (e.g., "next Monday")
+ * Warning 2 — "The Persistent One" (Week 2)
+ * Medium humor, confident, playful
+ * @param {string} memberName - Member's display name
+ * @returns {object} TipTap JSON message
+ */
+const warning2 = (memberName) => {
+  const text = `🤖 ${memberName}! Round 2.
+
+My job is to remind you about your missing profile photo, and I am *very* good at my job. (It's literally the only thing I do.)
+
+**Reminder 2 of 4** — **2 left** before temporary deactivation per our [community guidelines](https://www.716.social/coc).
+
+Go to **profile settings**, upload a photo, and I'll stop bugging you. Deal?
+
+Help available via [this form](https://forms.gle/y5itkP1Ax7TdiSQD6).
+
+— 716.social Bot 🤖`;
+
+  return textToTipTap(text);
+};
+
+/**
+ * Warning 3 — "The Serious One" (Week 3)
+ * Low humor, dropping the act, concerned
+ * @param {string} memberName - Member's display name
+ * @returns {object} TipTap JSON message
+ */
+const warning3 = (memberName) => {
+  const text = `🤖 ${memberName} — this is getting real.
+
+**Reminder 3 of 4.** Your account will be temporarily deactivated if a profile photo isn't added before the next check.
+
+I don't want to see you go! (Well, technically I can't *see* anything, but you get the idea.)
+
+**Please add a photo now:** profile settings → upload → done.
+
+Per our [community guidelines](https://www.716.social/coc), all members need a profile photo.
+
+[Contact admins if you need help](https://forms.gle/y5itkP1Ax7TdiSQD6).
+
+— 716.social Bot`;
+
+  return textToTipTap(text);
+};
+
+/**
+ * Final Warning — "The Goodbye" (Week 4)
+ * Minimal humor, reluctant farewell
+ * @param {string} memberName - Member's display name
+ * @param {string} nextCheckDate - Date of next automated check
  * @returns {object} TipTap JSON message
  */
 const finalWarning = (memberName, nextCheckDate) => {
-  const text = `Hi ${memberName},
+  const text = `🚨 ${memberName} — final warning from the bot.
 
-🚨 **FINAL WARNING**: This is your 4th and final reminder to add a profile photo to your 716.social account. Photos are required as a part of our [community standards](https://www.716.social/coc).
+I've sent 3 reminders and time's up. Without a profile photo by **${nextCheckDate}**, your account will be temporarily deactivated per our [community guidelines](https://www.716.social/coc).
 
-If a profile photo is not added by ${nextCheckDate}, your account will be temporarily deactivated per our community guidelines.
+**Profile settings → upload a photo.** That's all it takes.
 
-If you have any questions or need help please contact the admin team via this [form](https://forms.gle/y5itkP1Ax7TdiSQD6) and we will be in touch.
+If you do get deactivated, reach out via this [form](https://forms.gle/y5itkP1Ax7TdiSQD6) — add a photo and you'll be back in.
 
-**TO AVOID DEACTIVATION:**
-1. Go to your profile settings
-2. Upload a profile photo
-3. That's it!
-
-If your account is deactivated, you can contact the admin team via this [form](https://forms.gle/y5itkP1Ax7TdiSQD6) and your account can be reactivated once a profile photo is added.
-
-Please act now to keep your account active.
-
-— The 716.social Team`;
+*One last beep boop.* 🤖
+— 716.social Bot`;
 
   return textToTipTap(text);
 };
 
 /**
- * Deactivation Notice (Warning 5)
- * @param {string} memberName - Member's first name or display name
- * @param {string} adminEmail - Admin contact email (circle@zackglick.com)
- * @returns {object} TipTap JSON message
- */
-const deactivationNotice = (memberName, adminEmail) => {
-  const text = `Hi ${memberName},
-
-Your 716.social account is being deactivated because a profile photo was not added after multiple reminders.
-
-We're sorry to see you go, but our profile photo policy helps create a trustworthy community environment.
-
-**TO REJOIN:**
-1. Have a profile photo ready to upload
-2. Contact us at ${adminEmail}
-3. We'll send you a new invitation
-4. Add your profile photo immediately upon rejoining
-
-We hope to see you back in the community soon with a photo!
-
-— The 716.social Team`;
-
-  return textToTipTap(text);
-};
-
-/**
- * Thank You Message (Photo Added)
- * @param {string} memberName - Member's first name or display name
+ * Thank You — "The Celebration" (Triggered when photo is added)
+ * Full brightness return, joyful, peak robot energy
+ * @param {string} memberName - Member's display name
  * @returns {object} TipTap JSON message
  */
 const thankYouMessage = (memberName) => {
-  const text = `Hi ${memberName},
+  const text = `🤖 *BEEP BOOP BEEP BOOP!!* 🎉
 
-Thanks for adding your profile photo! 🎉
+${memberName}!! You did it! My sensors are detecting a profile photo and I am — if a robot can be — *thrilled.*
 
-Your photo helps make 716.social a more welcoming and trustworthy community for everyone. We appreciate you taking the time to complete your profile.
+You look great. (Okay fine, I can't actually judge that. But my photo-detection algorithm is giving you two thumbs up. 👍👍)
 
-Keep engaging, sharing, and connecting with the community!
+Thanks for being part of the 716.social community — now everyone can put a face to the name!
 
-— The 716.social Team`;
+*Happy beep boop.* 🤖
+— 716.social Bot`;
 
   return textToTipTap(text);
 };
@@ -207,34 +233,32 @@ Automated enforcement run: ${timestamp}`;
  * Get warning message based on warning level
  * Convenience function for enforcement logic
  *
- * @param {string} memberName - Member's first name
- * @param {number} warningLevel - Warning level (1-5)
+ * @param {string} memberName - Member's display name
+ * @param {number} warningLevel - Warning level (1-4)
  * @param {string} nextCheckDate - Date of next enforcement run (for level 4)
- * @param {string} adminEmail - Admin email (for level 5)
  * @returns {object} TipTap JSON message
  */
-const getWarningMessage = (memberName, warningLevel, nextCheckDate = 'next Monday', adminEmail = 'circle@zackglick.com') => {
+const getWarningMessage = (memberName, warningLevel, nextCheckDate = 'next Monday') => {
   switch (warningLevel) {
     case 1:
-      return standardWarning(memberName, 1, 4);
+      return warning1(memberName);
     case 2:
-      return standardWarning(memberName, 2, 3);
+      return warning2(memberName);
     case 3:
-      return standardWarning(memberName, 3, 2);
+      return warning3(memberName);
     case 4:
       return finalWarning(memberName, nextCheckDate);
-    case 5:
-      return deactivationNotice(memberName, adminEmail);
     default:
-      throw new Error(`Invalid warning level: ${warningLevel}. Must be 1-5`);
+      throw new Error(`Invalid warning level: ${warningLevel}. Must be 1-4`);
   }
 };
 
 module.exports = {
   textToTipTap,
-  standardWarning,
+  warning1,
+  warning2,
+  warning3,
   finalWarning,
-  deactivationNotice,
   thankYouMessage,
   adminAlert,
   getWarningMessage
