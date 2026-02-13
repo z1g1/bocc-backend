@@ -72,11 +72,11 @@ const textToTipTap = (text) => {
 const standardWarning = (memberName, warningNumber, warningsRemaining) => {
   const text = `Hi ${memberName},
 
-We noticed you haven't added a profile photo to your 716.social account yet. Profile photos help build community trust and make our space more welcoming for everyone. Having a profile photo is a part of our community guidelines https://www.716.social/coc.
+We noticed you haven't added a profile photo to your 716.social account yet. Profile photos help build community trust and make our space more welcoming for everyone. Having a profile photo is a part of our [community guidelines](https://www.716.social/coc).
 
 This is reminder **#${warningNumber}** out of 4 before we need to temporarily deactivate accounts without photos. You have **${warningsRemaining}** more reminders before a final warning.
 
-Adding a photo is easy: just go to your profile settings and upload an image. If you have any questions or need help please contact the admin team via this form https://forms.gle/y5itkP1Ax7TdiSQD6 and we will be in touch.
+Adding a photo is easy: just go to your profile settings and upload an image. If you have any questions or need help please contact the admin team via this [form](https://forms.gle/y5itkP1Ax7TdiSQD6) and we will be in touch.
 
 Thanks for being part of our community!
 — The 716.social Team`;
@@ -93,11 +93,11 @@ Thanks for being part of our community!
 const finalWarning = (memberName, nextCheckDate) => {
   const text = `Hi ${memberName},
 
-🚨 **FINAL WARNING**: This is your 4th and final reminder to add a profile photo to your 716.social account. Photos are required as a part of our community standards https://www.716.social/coc.
+🚨 **FINAL WARNING**: This is your 4th and final reminder to add a profile photo to your 716.social account. Photos are required as a part of our [community standards](https://www.716.social/coc).
 
 If a profile photo is not added by ${nextCheckDate}, your account will be temporarily deactivated per our community guidelines.
 
-If you have any questions or need help please contact the admin team via this form https://forms.gle/y5itkP1Ax7TdiSQD6 and we will be in touch.
+If you have any questions or need help please contact the admin team via this [form](https://forms.gle/y5itkP1Ax7TdiSQD6) and we will be in touch.
 
 **TO AVOID DEACTIVATION:**
 1. Go to your profile settings
