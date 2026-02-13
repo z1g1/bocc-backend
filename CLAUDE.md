@@ -115,7 +115,7 @@ bocc-backend/
 │           ├── circle.js                     # Circle.so Admin API v2 client
 │           ├── circle-member-api.js          # Circle.so Headless Auth API (bot DMs, JWT auth)
 │           ├── enforcement-logic.js          # Warning decision engine and action processor
-│           ├── message-templates.js          # TipTap JSON message formatting for Circle DMs
+│           ├── message-templates.js          # Bot story arc DM templates (TipTap JSON for Circle)
 │           └── validation.js                 # Input validation and sanitization
 ├── tests/                                    # Jest unit tests + shell smoke tests
 │   └── integration/                          # Integration tests (require RUN_INTEGRATION_TESTS=true)
@@ -145,7 +145,7 @@ netlify dev
 
 **Testing:**
 ```bash
-# Run all Jest unit tests (~219 tests across 10 test suites)
+# Run all Jest unit tests (~299 tests across 10 test suites)
 npm test
 
 # Run only unit tests (excludes integration tests)
@@ -233,12 +233,14 @@ All database operations are in `netlify/functions/utils/airtable.js`:
 - Bot authenticated by email (NOT by community_member_id — the URL slug `73e5a590` is not the internal ID)
 
 **Profile Photo Enforcement** (`netlify/functions/utils/enforcement-logic.js`):
-- Progressive warning system: warnings 1-4 send DMs, warning 5 deactivates account
+- Progressive warning system with character-driven "716.social Bot" story arc (see `docs/716-bot-final-messaging.md`)
+- Warnings 1-4 send distinct personality-driven DMs; deactivation (after warning 4) has no DM — account is simply deactivated
+- If a member adds their photo at any point, they receive a celebratory "thank you" DM
 - `determineEnforcementAction(warningRecord)` - Decides what action to take
 - `processEnforcementAction(action, member, dryRun)` - Executes the action
 - Safety limits: 500-member warning threshold (logs warning), 1000-member hard cap (aborts)
 - Warning tracking via Airtable `No Photo Warnings` table (`airtable-warnings.js`)
-- DM messages formatted as TipTap JSON (`message-templates.js`)
+- DM messages formatted as TipTap JSON with bold, italic, and link support (`message-templates.js`)
 
 **Input Validation:**
 All validation functions are in `netlify/functions/utils/validation.js`:
@@ -279,11 +281,12 @@ All validation functions are in `netlify/functions/utils/validation.js`:
 5. Add unit tests to `tests/validation.test.js` and `tests/checkin.test.js`
 
 **Modifying profile photo enforcement:**
-1. Warning message content: `netlify/functions/utils/message-templates.js` (TipTap JSON format required by Circle.so)
+1. Warning message copy/personality: `netlify/functions/utils/message-templates.js` — bot story arc with `warning1()`, `warning2()`, `warning3()`, `finalWarning()`, `thankYouMessage()` (see `docs/716-bot-final-messaging.md` for spec)
 2. Warning thresholds or actions: `netlify/functions/utils/enforcement-logic.js`
 3. Schedule timing: `netlify.toml` `[functions."profile-photo-enforcement"]` cron expression
 4. Manual testing: call `profile-photo-enforcement-manual` endpoint with `?dryRun=true`
 5. Airtable warning records: `netlify/functions/utils/airtable-warnings.js`
+6. TipTap parser (bold/italic/links): `textToTipTap()` in `message-templates.js`
 
 **Debugging production issues:**
 1. Check Netlify function logs in Netlify dashboard
@@ -301,7 +304,7 @@ Planned improvements:
 ## Testing Strategy
 
 **Unit Tests:**
-- ~219 Jest tests across 10 test suites covering checkin, validation, deduplication, Circle.so, enforcement logic, message templates, airtable warnings, and member API
+- ~299 Jest tests across 10 test suites covering checkin, validation, deduplication, Circle.so, enforcement logic, message templates, airtable warnings, and member API
 - Run with `npm test` (all) or `npm run test:unit` (exclude integration)
 - Integration tests in `tests/integration/` require `RUN_INTEGRATION_TESTS=true` and real API tokens
 

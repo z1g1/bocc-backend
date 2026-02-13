@@ -81,8 +81,7 @@ curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcem
   - Status: Active
   - Last Warning Date: Today
 - ✅ DM sent to Test Glick:
-  - Subject: "Warning #1"
-  - Content: Standard warning message with 4 warnings remaining
+  - Content: "The Introduction" — robot personality, "Beep boop!", reminder 1 of 4, 3 remaining
   - Sender: 716.social Bot
 - ✅ Function returns success summary:
   - Total members: 1+
@@ -116,7 +115,7 @@ curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcem
 - ✅ Airtable record updated:
   - Number of Warnings: 2
   - Last Warning Date: Updated to today
-- ✅ DM sent: "Warning #2, 3 warnings remaining"
+- ✅ DM sent: "The Persistent One" — "Round 2", reminder 2 of 4, 2 left
 - ✅ No admin notification
 
 **Execute Again (Week 3):**
@@ -128,7 +127,7 @@ curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcem
 - ✅ Airtable record updated:
   - Number of Warnings: 3
   - Last Warning Date: Updated to today
-- ✅ DM sent: "Warning #3, 2 warnings remaining"
+- ✅ DM sent: "The Serious One" — "this is getting real", reminder 3 of 4
 - ✅ No admin notification
 
 ---
@@ -152,9 +151,7 @@ curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcem
   - Status: Active (not deactivated yet)
   - Last Warning Date: Updated to today
 - ✅ DM sent to Test Glick:
-  - Subject: "🚨 FINAL WARNING"
-  - Content: Warning #4, account will be deactivated next run
-  - Mentions next Monday's enforcement date
+  - Content: "The Goodbye" — 🚨, "final warning from the bot", next Monday date, "One last beep boop"
 - ✅ **Admin DM sent to circle@zackglick.com**:
   - Subject: "Final Warning Issued: Test Glick"
   - Content: Member details, warning count, profile link
@@ -184,7 +181,7 @@ curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcem
 ```
 
 **Expected Results:**
-- ✅ Deactivation notice DM sent to Test Glick (before deactivation)
+- ✅ **No DM sent to Test Glick** — the final warning (phase 3) was the last message
 - ✅ **Test Glick account deactivated** via DELETE API
 - ✅ Airtable record updated:
   - Number of Warnings: 5
@@ -192,13 +189,13 @@ curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcem
   - Last Warning Date: Updated to today
 - ✅ **Admin DM sent to circle@zackglick.com**:
   - Subject: "Member Deactivated: Test Glick"
-  - Content: Deactivation details, rejoin instructions
+  - Content: Deactivation details
   - Action type: DEACTIVATION
 
 **Verification Steps:**
 1. **Verify Test Glick cannot log into 716.social**
 2. Check Airtable shows Status = "Deactivated"
-3. Check Test Glick received deactivation notice DM
+3. **Verify NO new DM was sent to Test Glick** (last DM should be the final warning from phase 3)
 4. **Check admin received deactivation alert DM**
 5. Review function logs for deactivation success
 6. Verify summary shows: deactivations: 1
@@ -222,8 +219,7 @@ curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcem
 **Expected Results:**
 - ✅ System detects Test Glick now has profile photo
 - ✅ Thank you DM sent to Test Glick:
-  - Subject: "Thanks for adding your photo! 🎉"
-  - Content: Positive reinforcement, community appreciation
+  - Content: "The Celebration" — "BEEP BOOP BEEP BOOP!!", "thrilled", "Happy beep boop" 🎉
 - ✅ **Airtable warning record DELETED**
 - ✅ No admin notification (positive outcome)
 
@@ -312,7 +308,7 @@ curl "https://bocc-backend.netlify.app/.netlify/functions/profile-photo-enforcem
 - [ ] Summary shows finalWarnings: 1
 
 ### Phase 4: Deactivation
-- [ ] Deactivation notice sent to Test Glick
+- [ ] **No DM sent** to Test Glick (final warning was the last message)
 - [ ] **Account actually deactivated**
 - [ ] Airtable status = "Deactivated"
 - [ ] **Admin deactivation alert sent**
@@ -482,5 +478,5 @@ After successful testing:
 ---
 
 **Testing Status**: 🟡 Awaiting Manual Testing
-**Last Updated**: 2025-02-05
+**Last Updated**: 2026-02-13
 **Epic**: EPIC-4 Profile Photo Enforcement

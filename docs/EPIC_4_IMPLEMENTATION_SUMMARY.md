@@ -3,7 +3,7 @@
 **Status**: ✅ **COMPLETE - Ready for Testing** (Updated 2026-02-06 with Epic 5 refactoring)
 **Date**: 2025-02-05 (Epic 4), 2026-02-06 (Epic 5 member detection refactoring)
 **Developer**: Claude Code
-**Test Coverage**: 265 tests passing (updated after Epic 5 refactoring)
+**Test Coverage**: 299 tests passing (updated after bot story arc messaging)
 
 ---
 
@@ -79,10 +79,12 @@ This change demonstrates the project's commitment to safety (adding limits), hon
 - **Tests**: 28 tests covering all transitions and edge cases
 
 #### 4. Message Templates (`utils/message-templates.js`)
-- **Format**: TipTap JSON for Circle.so rich text rendering
-- **Templates**: 5 message types (warnings 1-5, thank you, admin alerts)
-- **Functions**: `getWarningMessage()`, `thankYouMessage()`, `adminAlert()`
-- **Tests**: 37 tests validating TipTap structure and content
+- **Format**: TipTap JSON for Circle.so rich text rendering (bold, italic, links)
+- **Story Arc**: Character-driven "716.social Bot" — personality dims as urgency rises (messages 1-4), snaps back when photo added (message 5). See `docs/716-bot-final-messaging.md` for full spec.
+- **Templates**: `warning1()`, `warning2()`, `warning3()`, `finalWarning()`, `thankYouMessage()`, `adminAlert()`
+- **No deactivation DM**: After the 4th warning (final), the account is silently deactivated — no message 5 DM
+- **Functions**: `getWarningMessage()` (routes levels 1-4), `thankYouMessage()`, `adminAlert()`
+- **Tests**: 68 tests validating TipTap structure, italic support, story arc uniqueness, and content
 
 #### 5. Member API Client (`utils/circle-member-api.js`)
 - **JWT Authentication**: Bot user (716.social Bot, ID: 73e5a590)
@@ -153,10 +155,10 @@ This change demonstrates the project's commitment to safety (adding limits), hon
 │    3. ⚠️  Send admin notification DM                       │
 │                                                             │
 │  DEACTIVATE (4→5):                                         │
-│    1. Send deactivation notice DM to member                │
-│    2. 🚫 DELETE member account via Circle API              │
-│    3. Update Airtable status = "Deactivated"               │
-│    4. ⚠️  Send admin deactivation alert DM                │
+│    1. 🚫 DELETE member account via Circle API              │
+│    2. Update Airtable status = "Deactivated"               │
+│    3. ⚠️  Send admin deactivation alert DM                │
+│    (No DM to member — final warning was the last message)  │
 │                                                             │
 │  PHOTO_ADDED:                                               │
 │    1. Send thank you DM to member                          │
@@ -226,7 +228,7 @@ This change demonstrates the project's commitment to safety (adding limits), hon
 ┌───────┐ ┌───────┐ ┌───────┐ ┌───────┐ ┌───────┐ ┌───────┐
 │ 1→2   │ │ 2→3   │ │ 3→4   │ │ 4→5   │ │ SKIP  │ │ SKIP  │
 │ Warn  │ │ Warn  │ │ FINAL │ │DEACT  │ │Anomaly│ │Already│
-│ DM    │ │ DM    │ │ Warn  │ │ + DM  │ │Notify │ │handled│
+│ DM    │ │ DM    │ │ Warn  │ │(noDM) │ │Notify │ │handled│
 │       │ │       │ │ + ADM │ │ + ADM │ │ Admin │ │       │
 └───────┘ └───────┘ └───────┘ └───────┘ └───────┘ └───────┘
 ```
@@ -263,85 +265,21 @@ This change demonstrates the project's commitment to safety (adding limits), hon
 
 ---
 
-## Message Templates
+## Message Templates — Bot Story Arc
 
-### 1. Standard Warning (Warnings 1-3)
-```
-Hi {memberName},
+Messages use a character-driven "716.social Bot" personality. The robot's humor dims as urgency rises (messages 1-4), then snaps back to full brightness when the user adds their photo (message 5). See `docs/716-bot-final-messaging.md` for the full final copy.
 
-We noticed you haven't added a profile photo to your 716.social account yet.
-Profile photos help build community trust and make our space more welcoming
-for everyone.
+**No deactivation DM**: After the 4th warning (final), accounts are silently deactivated. The final warning already told the member what would happen.
 
-This is reminder #1 out of 4 before we need to temporarily deactivate
-accounts without photos. You have 4 more reminders before a final warning.
+| # | Function | Title | Personality |
+|---|----------|-------|-------------|
+| 1 | `warning1(memberName)` | "The Introduction" | High humor, robot bookends, "Beep boop!" |
+| 2 | `warning2(memberName)` | "The Persistent One" | Medium humor, "Round 2", confident |
+| 3 | `warning3(memberName)` | "The Serious One" | Low humor, dropping the act |
+| 4 | `finalWarning(memberName, nextCheckDate)` | "The Goodbye" | Minimal humor, "One last beep boop" |
+| 5 | `thankYouMessage(memberName)` | "The Celebration" | Full brightness, "BEEP BOOP BEEP BOOP!!" |
 
-Adding a photo is easy: just go to your profile settings and upload an
-image that represents you.
-
-Thanks for being part of our community!
-— The 716.social Team
-```
-
-### 2. Final Warning (Warning 4)
-```
-Hi {memberName},
-
-🚨 FINAL WARNING: This is your 4th and final reminder to add a profile photo
-to your 716.social account.
-
-If a profile photo is not added by next Monday, your account will be
-temporarily deactivated per our community guidelines.
-
-TO AVOID DEACTIVATION:
-1. Go to your profile settings
-2. Upload a profile photo
-3. That's it!
-
-If your account is deactivated, you can contact circle@zackglick.com to be
-re-invited after adding a photo.
-
-Please act now to keep your account active.
-
-— The 716.social Team
-```
-
-### 3. Deactivation Notice (Warning 5)
-```
-Hi {memberName},
-
-Your 716.social account is being deactivated because a profile photo was
-not added after multiple reminders.
-
-We're sorry to see you go, but our profile photo policy helps create a
-trustworthy community environment.
-
-TO REJOIN:
-1. Have a profile photo ready to upload
-2. Contact us at circle@zackglick.com
-3. We'll send you a new invitation
-4. Add your profile photo immediately upon rejoining
-
-We hope to see you back in the community soon with a photo!
-
-— The 716.social Team
-```
-
-### 4. Thank You Message (Photo Added)
-```
-Hi {memberName},
-
-Thanks for adding your profile photo! 🎉
-
-Your photo helps make 716.social a more welcoming and trustworthy community
-for everyone. We appreciate you taking the time to complete your profile.
-
-Keep engaging, sharing, and connecting with the community!
-
-— The 716.social Team
-```
-
-### 5. Admin Alerts
+### Admin Alerts (unchanged)
 - **Final Warning**: "Final Warning Issued: {memberName}"
 - **Deactivation**: "Member Deactivated: {memberName}"
 - **Anomaly**: "Enforcement Anomaly: {memberName}"
@@ -350,7 +288,7 @@ Keep engaging, sharing, and connecting with the community!
 
 ## Test Coverage Summary
 
-### Unit Tests: 273 Passing (1 Skipped)
+### Unit Tests: 299 Passing (2 Skipped)
 
 | Module | Tests | Coverage |
 |--------|-------|----------|
@@ -360,9 +298,9 @@ Keep engaging, sharing, and connecting with the community!
 | Circle Member Photo Detection | 15 | Member queries, pagination, safety limits (Epic 5) |
 | Circle Admin | 17 | Member mgmt, deactivation, error handling |
 | Enforcement Logic | 28 | State machine, all actions, edge cases |
-| Message Templates | 37 | TipTap JSON, all templates, validation |
+| Message Templates | 68 | TipTap JSON, italic support, story arc, all templates |
 | Circle Member API | 23 | JWT auth, chat rooms, DM sending |
-| **Total** | **265** | **Comprehensive coverage** |
+| **Total** | **299** | **Comprehensive coverage** |
 
 ### Integration Testing
 - ✅ End-to-end flow: segment → warnings → enforcement → DMs
@@ -474,7 +412,7 @@ git push origin main
 ### Implementation Metrics
 - ✅ **7 Stories** completed (STORY-11 through STORY-17)
 - ✅ **52 TDD Tasks** completed
-- ✅ **273 Tests** passing (99.6% pass rate)
+- ✅ **299 Tests** passing
 - ✅ **1,510 Lines** of production code
 - ✅ **2,500 Lines** of test code
 - ✅ **Zero Critical Bugs** in testing
