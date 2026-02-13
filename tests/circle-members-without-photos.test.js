@@ -26,7 +26,94 @@ jest.mock('axios', () => ({
   create: mockAxiosCreate
 }));
 
-const { getMembersWithoutPhotos } = require('../netlify/functions/utils/circle');
+const { getMembersWithoutPhotos, getAllMembers } = require('../netlify/functions/utils/circle');
+
+describe('getAllMembers', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    console.log.mockRestore();
+    console.error.mockRestore();
+    console.warn.mockRestore();
+  });
+
+  it('should return all members without filtering', async () => {
+    const allMembers = [
+      { id: '1', email: 'a@example.com', avatar_url: 'https://photo.jpg' },
+      { id: '2', email: 'b@example.com', avatar_url: null },
+      { id: '3', email: 'c@example.com', avatar_url: '' }
+    ];
+
+    mockAxiosGet.mockResolvedValue({
+      data: { records: allMembers, has_next_page: false }
+    });
+
+    const result = await getAllMembers();
+    expect(result).toHaveLength(3);
+    expect(result).toEqual(allMembers);
+  });
+
+  it('should handle pagination across multiple pages', async () => {
+    mockAxiosGet
+      .mockResolvedValueOnce({
+        data: {
+          records: [{ id: '1', email: 'page1@example.com' }],
+          has_next_page: true
+        }
+      })
+      .mockResolvedValueOnce({
+        data: {
+          records: [{ id: '2', email: 'page2@example.com' }],
+          has_next_page: false
+        }
+      });
+
+    const result = await getAllMembers();
+    expect(result).toHaveLength(2);
+    expect(result[0].email).toBe('page1@example.com');
+    expect(result[1].email).toBe('page2@example.com');
+    expect(mockAxiosGet).toHaveBeenCalledTimes(2);
+  });
+
+  it('should throw error at hard limit (1000 members)', async () => {
+    const members1000 = Array(1000).fill(null).map((_, i) => ({
+      id: `member-${i}`, email: `user${i}@example.com`
+    }));
+
+    mockAxiosGet.mockResolvedValue({
+      data: { records: members1000, has_next_page: false }
+    });
+
+    await expect(getAllMembers()).rejects.toThrow('Safety limit exceeded');
+  });
+
+  it('should log warning at 500 members but continue', async () => {
+    const members500 = Array(500).fill(null).map((_, i) => ({
+      id: `member-${i}`, email: `user${i}@example.com`
+    }));
+
+    mockAxiosGet.mockResolvedValue({
+      data: { records: members500, has_next_page: false }
+    });
+
+    const result = await getAllMembers();
+    expect(result).toHaveLength(500);
+    expect(console.warn).toHaveBeenCalledWith(
+      expect.stringContaining('WARNING: Processing 500 members')
+    );
+  });
+
+  it('should throw on invalid API response', async () => {
+    mockAxiosGet.mockResolvedValue({ data: {} });
+
+    await expect(getAllMembers()).rejects.toThrow("Invalid API response: missing 'records' field");
+  });
+});
 
 describe('getMembersWithoutPhotos', () => {
   beforeEach(() => {

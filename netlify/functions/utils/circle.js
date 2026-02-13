@@ -202,31 +202,26 @@ const ensureMember = async (email, name) => {
 };
 
 /**
- * Get all community members without profile photos
+ * Get all community members
  *
- * Fetches ALL community members via /community_members endpoint and filters
- * client-side for members where avatar_url is null or empty string.
- *
- * Why client-side filtering?
- * Circle.so Admin API v2 does NOT support querying audience segments.
- * See: docs/CIRCLE_SEGMENTS_RESEARCH.md
+ * Fetches ALL community members via /community_members endpoint with pagination.
  *
  * Safety Limits:
  * - 500 members: Warning logged (approaching limit)
  * - 1000 members: Error thrown (hard cap to prevent mass-processing bugs)
  * See: docs/SAFETY_LIMITS_SPECIFICATION.md
  *
- * @returns {Promise<Array>} Members without profile photos (avatar_url null or "")
+ * @returns {Promise<Array>} All community members
  * @throws {Error} If member count exceeds 1000 (safety limit)
  *
  * @example
- * const members = await getMembersWithoutPhotos();
- * // Returns: [{id: 'abc', email: 'user@example.com', avatar_url: null}, ...]
+ * const members = await getAllMembers();
+ * // Returns: [{id: 'abc', email: 'user@example.com', avatar_url: '...'}, ...]
  */
-const getMembersWithoutPhotos = async () => {
+const getAllMembers = async () => {
     const startTime = Date.now();
 
-    console.log('Fetching all community members and filtering for no profile photo...');
+    console.log('Fetching all community members...');
 
     try {
         let allMembers = [];
@@ -294,17 +289,9 @@ const getMembersWithoutPhotos = async () => {
             throw new Error(errorMsg);
         }
 
-        // Filter for members without profile photos
-        // No photo = avatar_url is null OR empty string
-        const membersWithoutPhotos = allMembers.filter(member => {
-            const hasPhoto = member.avatar_url && member.avatar_url !== '';
-            return !hasPhoto;
-        });
+        console.log(`getAllMembers completed in ${Date.now() - startTime}ms`);
 
-        console.log(`Found ${membersWithoutPhotos.length} members without profile photos`);
-        console.log(`Query completed in ${Date.now() - startTime}ms`);
-
-        return membersWithoutPhotos;
+        return allMembers;
 
     } catch (error) {
         console.error('CRITICAL ERROR: Failed to fetch members:', error.message);
@@ -321,6 +308,38 @@ const getMembersWithoutPhotos = async () => {
 
         throw error;
     }
+};
+
+/**
+ * Get all community members without profile photos
+ *
+ * Fetches ALL community members via getAllMembers() and filters
+ * client-side for members where avatar_url is null or empty string.
+ *
+ * Why client-side filtering?
+ * Circle.so Admin API v2 does NOT support querying audience segments.
+ * See: docs/CIRCLE_SEGMENTS_RESEARCH.md
+ *
+ * @returns {Promise<Array>} Members without profile photos (avatar_url null or "")
+ * @throws {Error} If member count exceeds 1000 (safety limit)
+ *
+ * @example
+ * const members = await getMembersWithoutPhotos();
+ * // Returns: [{id: 'abc', email: 'user@example.com', avatar_url: null}, ...]
+ */
+const getMembersWithoutPhotos = async () => {
+    const allMembers = await getAllMembers();
+
+    // Filter for members without profile photos
+    // No photo = avatar_url is null OR empty string
+    const membersWithoutPhotos = allMembers.filter(member => {
+        const hasPhoto = member.avatar_url && member.avatar_url !== '';
+        return !hasPhoto;
+    });
+
+    console.log(`Found ${membersWithoutPhotos.length} members without profile photos`);
+
+    return membersWithoutPhotos;
 };
 
 /**
@@ -381,5 +400,6 @@ module.exports = {
     incrementCheckinCount,
     ensureMember,
     deactivateMember,
+    getAllMembers,
     getMembersWithoutPhotos
 };

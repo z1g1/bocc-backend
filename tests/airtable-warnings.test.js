@@ -41,7 +41,8 @@ const {
   createWarningRecord,
   incrementWarningCount,
   updateWarningStatus,
-  deleteWarningRecord
+  deleteWarningRecord,
+  getActiveWarnings
 } = require('../netlify/functions/utils/airtable-warnings');
 
 describe('Airtable Warning Operations', () => {
@@ -450,6 +451,53 @@ describe('Airtable Warning Operations', () => {
       await expect(deleteWarningRecord('recNonExistent'))
         .rejects
         .toThrow('NOT_FOUND');
+    });
+  });
+
+  describe('getActiveWarnings', () => {
+    it('should return all active warning records', async () => {
+      const mockRecords = [
+        {
+          id: 'rec123',
+          fields: { 'Email': 'alice@example.com', 'Status': 'Active', 'Number of warnings': 2 }
+        },
+        {
+          id: 'rec456',
+          fields: { 'Email': 'bob@example.com', 'Status': 'Active', 'Number of warnings': 1 }
+        }
+      ];
+
+      mockFirstPage.mockResolvedValue(mockRecords);
+
+      const result = await getActiveWarnings();
+
+      expect(result).toEqual(mockRecords);
+      expect(result).toHaveLength(2);
+      expect(mockSelect).toHaveBeenCalledWith({
+        filterByFormula: `{Status} = 'Active'`
+      });
+    });
+
+    it('should return empty array when no active warnings exist', async () => {
+      mockFirstPage.mockResolvedValue([]);
+
+      const result = await getActiveWarnings();
+
+      expect(result).toEqual([]);
+      expect(result).toHaveLength(0);
+    });
+
+    it('should handle Airtable API errors', async () => {
+      mockFirstPage.mockRejectedValue(new Error('Airtable API error'));
+
+      await expect(getActiveWarnings())
+        .rejects
+        .toThrow('Airtable API error');
+
+      expect(console.error).toHaveBeenCalledWith(
+        'Error fetching active warnings:',
+        'Airtable API error'
+      );
     });
   });
 });

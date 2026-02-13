@@ -160,10 +160,31 @@ const deleteWarningRecord = async (recordId) => {
   }
 };
 
+/**
+ * Get all active warning records
+ * @returns {Promise<Array>} Array of Airtable records with Status = 'Active'
+ */
+const getActiveWarnings = async () => {
+  try {
+    console.log('Fetching all active warning records...');
+
+    const records = await base(WARNING_TABLE_NAME).select({
+      filterByFormula: `{Status} = 'Active'`
+    }).firstPage();
+
+    console.log(`Found ${records.length} active warning records`);
+    return records;
+  } catch (error) {
+    console.error('Error fetching active warnings:', error.message);
+    throw error;
+  }
+};
+
 module.exports = {
   findWarningByEmail,
   createWarningRecord,
   incrementWarningCount,
   updateWarningStatus,
-  deleteWarningRecord
+  deleteWarningRecord,
+  getActiveWarnings
 };

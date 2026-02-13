@@ -10,8 +10,8 @@
  * Configured in netlify.toml
  */
 
-const { getMembersWithoutPhotos } = require('./utils/circle');
-const { findWarningByEmail } = require('./utils/airtable-warnings');
+const { getAllMembers } = require('./utils/circle');
+const { findWarningByEmail, getActiveWarnings } = require('./utils/airtable-warnings');
 const {
   determineEnforcementAction,
   processEnforcementAction
@@ -54,26 +54,34 @@ const runEnforcement = async (dryRun = false, filterEmail = null) => {
   };
 
   try {
-    // Step 1: Fetch all members without profile photos
+    // Step 1: Fetch all community members
     // Uses client-side filtering as Circle.so Admin API v2 does not support
     // querying audience segments. See docs/CIRCLE_SEGMENTS_RESEARCH.md
-    console.log('\nFetching all members and filtering for those without photos...');
-    const members = await getMembersWithoutPhotos();
+    console.log('\nFetching all members...');
+    const allMembers = await getAllMembers();
+
+    // Filter for members without profile photos
+    const membersWithoutPhotos = allMembers.filter(member => {
+      const hasPhoto = member.avatar_url && member.avatar_url !== '';
+      return !hasPhoto;
+    });
+
+    console.log(`Found ${membersWithoutPhotos.length} members without profile photos`);
 
     // Filter to specific email if provided (used by manual endpoint)
-    let filteredMembers = members;
+    let filteredMembers = membersWithoutPhotos;
     if (filterEmail) {
-      filteredMembers = members.filter(
+      filteredMembers = membersWithoutPhotos.filter(
         m => m.email && m.email.toLowerCase() === filterEmail.toLowerCase()
       );
-      console.log(`Filtered to email "${filterEmail}": ${filteredMembers.length} match(es) from ${members.length} total`);
+      console.log(`Filtered to email "${filterEmail}": ${filteredMembers.length} match(es) from ${membersWithoutPhotos.length} total`);
     }
 
     summary.totalMembers = filteredMembers.length;
 
     console.log(`Found ${filteredMembers.length} members to process\n`);
 
-    // Step 2: Process each member
+    // Step 2: Process each member without a photo (existing warning loop)
     for (const member of filteredMembers) {
       try {
         console.log(`\nProcessing: ${member.name} (${member.email})`);
@@ -131,6 +139,82 @@ const runEnforcement = async (dryRun = false, filterEmail = null) => {
         });
 
         console.error(`  ✗ Error processing ${member.email}:`, memberError.message);
+      }
+    }
+
+    // Step 3: Detect members who added photos since last enforcement run
+    // Cross-reference active Airtable warnings against the no-photo member list
+    console.log('\nStep 3: Checking for members who added photos...');
+    const activeWarnings = await getActiveWarnings();
+
+    // Build a Set of no-photo member emails for fast lookup
+    const noPhotoEmails = new Set(
+      membersWithoutPhotos.map(m => m.email.toLowerCase())
+    );
+
+    for (const warning of activeWarnings) {
+      const warningEmail = warning.fields['Email'];
+      if (!warningEmail) continue;
+
+      const normalizedEmail = warningEmail.toLowerCase();
+
+      // Respect filterEmail parameter
+      if (filterEmail && normalizedEmail !== filterEmail.toLowerCase()) {
+        continue;
+      }
+
+      // If this warning's email is NOT in the no-photo set, they added a photo
+      if (!noPhotoEmails.has(normalizedEmail)) {
+        try {
+          // Find the member object from the full allMembers list
+          const member = allMembers.find(
+            m => m.email && m.email.toLowerCase() === normalizedEmail
+          );
+
+          if (!member) {
+            console.log(`  Skipping ${warningEmail}: not found in community members (may have left)`);
+            continue;
+          }
+
+          console.log(`\nPhoto added detected: ${member.name} (${member.email})`);
+
+          // Set has_profile_picture so determineEnforcementAction returns PHOTO_ADDED
+          member.has_profile_picture = true;
+
+          const action = determineEnforcementAction(member, warning);
+
+          console.log(`  Action: ${action.action} (Level ${action.warningLevel})`);
+          console.log(`  Reason: ${action.reason}`);
+
+          const result = await processEnforcementAction(
+            member,
+            warning,
+            action,
+            dryRun
+          );
+
+          if (result.success) {
+            summary.processed++;
+            summary.actions[action.action]++;
+            console.log(`  ✓ Success: ${result.executedActions.join(', ')}`);
+          } else {
+            summary.errors++;
+            summary.errorDetails.push({
+              member: member.email,
+              action: action.action,
+              errors: result.errors
+            });
+            console.log(`  ✗ Failed: ${result.errors.join(', ')}`);
+          }
+
+        } catch (photoAddedError) {
+          summary.errors++;
+          summary.errorDetails.push({
+            member: warningEmail,
+            error: photoAddedError.message
+          });
+          console.error(`  ✗ Error processing photo-added for ${warningEmail}:`, photoAddedError.message);
+        }
       }
     }
 
