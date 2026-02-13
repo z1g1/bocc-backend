@@ -28,8 +28,8 @@ const textToTipTap = (text) => {
         lineContent.push({ type: 'hardBreak' });
       }
 
-      // Simple bold parsing: **text** becomes bold
-      const parts = line.split(/(\*\*[^*]+\*\*)/g);
+      // Parse bold (**text**) and markdown links ([text](url))
+      const parts = line.split(/(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g);
       parts.forEach(part => {
         if (part.startsWith('**') && part.endsWith('**')) {
           // Bold text
@@ -37,6 +37,20 @@ const textToTipTap = (text) => {
             type: 'text',
             marks: [{ type: 'bold' }],
             text: part.slice(2, -2)
+          });
+        } else if (/^\[[^\]]+\]\([^)]+\)$/.test(part)) {
+          // Markdown link [text](url) → TipTap link mark
+          const match = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+          lineContent.push({
+            type: 'text',
+            marks: [{
+              type: 'link',
+              attrs: {
+                href: match[2],
+                target: '_blank'
+              }
+            }],
+            text: match[1]
           });
         } else if (part.length > 0) {
           // Regular text
@@ -104,7 +118,7 @@ If you have any questions or need help please contact the admin team via this [f
 2. Upload a profile photo
 3. That's it!
 
-If your account is deactivated, you can contact the admin team via this form https://forms.gle/y5itkP1Ax7TdiSQD6 and your account can be reactivated once a profile photo is added.
+If your account is deactivated, you can contact the admin team via this [form](https://forms.gle/y5itkP1Ax7TdiSQD6) and your account can be reactivated once a profile photo is added.
 
 Please act now to keep your account active.
 

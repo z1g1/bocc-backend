@@ -88,6 +88,49 @@ describe('Message Templates - TipTap JSON Generation', () => {
       });
     });
 
+    it('should convert [text](url) links to TipTap link marks', () => {
+      const result = textToTipTap('Visit [our site](https://example.com) today');
+
+      const paragraph = result.body.content[0];
+      expect(paragraph.content).toHaveLength(3);
+
+      expect(paragraph.content[0]).toEqual({ type: 'text', text: 'Visit ' });
+      expect(paragraph.content[1]).toEqual({
+        type: 'text',
+        marks: [{
+          type: 'link',
+          attrs: {
+            href: 'https://example.com',
+            target: '_blank'
+          }
+        }],
+        text: 'our site'
+      });
+      expect(paragraph.content[2]).toEqual({ type: 'text', text: ' today' });
+    });
+
+    it('should handle bold and links in the same line', () => {
+      const result = textToTipTap('**Important:** See [docs](https://example.com) now');
+
+      const paragraph = result.body.content[0];
+      expect(paragraph.content[0]).toEqual({
+        type: 'text',
+        marks: [{ type: 'bold' }],
+        text: 'Important:'
+      });
+      expect(paragraph.content[2]).toEqual({
+        type: 'text',
+        marks: [{
+          type: 'link',
+          attrs: {
+            href: 'https://example.com',
+            target: '_blank'
+          }
+        }],
+        text: 'docs'
+      });
+    });
+
     it('should handle empty strings', () => {
       const result = textToTipTap('');
 
@@ -190,7 +233,7 @@ describe('Message Templates - TipTap JSON Generation', () => {
       const result = finalWarning('Test', 'next Monday');
 
       const fullText = JSON.stringify(result);
-      expect(fullText).toContain('circle@zackglick.com');
+      expect(fullText).toContain('https://forms.gle/y5itkP1Ax7TdiSQD6');
     });
   });
 
