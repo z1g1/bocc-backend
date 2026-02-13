@@ -101,12 +101,11 @@ const findDMChatRoom = async (jwtToken, targetMemberId) => {
 
     const memberApi = createMemberApi(jwtToken);
 
-    // GET /api/headless/v1/chat_rooms
-    // Filter for 'direct' type rooms and find one with target member
-    const response = await memberApi.get('/api/headless/v1/chat_rooms', {
+    // GET /api/headless/v1/messages
+    // Circle has no separate chat_rooms endpoint; DMs are chat rooms with kind: 'direct'
+    const response = await memberApi.get('/api/headless/v1/messages', {
       params: {
-        per_page: 100,
-        kind: 'direct' // Only fetch direct message rooms
+        per_page: 100
       },
       timeout: 30000
     });
@@ -116,20 +115,26 @@ const findDMChatRoom = async (jwtToken, targetMemberId) => {
       return null;
     }
 
-    // Find chat room that includes target member
-    // Direct rooms have exactly 2 members: bot and target
+    // Filter for direct rooms client-side and find one with target member
     const chatRoom = response.data.records.find(room => {
-      if (!room.members || room.members.length !== 2) {
+      // Only consider direct message rooms
+      if (room.chat_room_kind !== 'direct') {
         return false;
       }
 
-      // Check if target member is in this room
-      return room.members.some(member => member.id === targetMemberId);
+      // Check if target member is in this room via other_participants_preview
+      if (!room.other_participants_preview) {
+        return false;
+      }
+
+      return room.other_participants_preview.some(
+        participant => String(participant.community_member_id) === String(targetMemberId)
+      );
     });
 
     if (chatRoom) {
-      console.log('Found existing DM chat room:', chatRoom.id);
-      return chatRoom.id;
+      console.log('Found existing DM chat room:', chatRoom.uuid);
+      return chatRoom.uuid;
     }
 
     console.log('No existing DM chat room found with member:', targetMemberId);
@@ -158,19 +163,21 @@ const createDMChatRoom = async (jwtToken, targetMemberId) => {
 
     const memberApi = createMemberApi(jwtToken);
 
-    // POST /api/headless/v1/chat_rooms
-    // Body: { kind: 'direct', member_ids: [targetMemberId] }
-    const response = await memberApi.post('/api/headless/v1/chat_rooms', {
-      kind: 'direct',
-      member_ids: [targetMemberId]
+    // POST /api/headless/v1/messages
+    // Body: { chat_room: { kind: 'direct', community_member_ids: [targetMemberId] } }
+    const response = await memberApi.post('/api/headless/v1/messages', {
+      chat_room: {
+        kind: 'direct',
+        community_member_ids: [targetMemberId]
+      }
     });
 
-    if (!response.data || !response.data.id) {
-      throw new Error('Create chat room response missing id');
+    if (!response.data || !response.data.chat_room || !response.data.chat_room.uuid) {
+      throw new Error('Create chat room response missing uuid');
     }
 
-    console.log('Successfully created DM chat room:', response.data.id);
-    return response.data.id;
+    console.log('Successfully created DM chat room:', response.data.chat_room.uuid);
+    return response.data.chat_room.uuid;
   } catch (error) {
     console.error('Error creating DM chat room:', error.message);
     if (error.response) {
@@ -274,13 +281,13 @@ const sendDirectMessage = async (targetMemberId, messageBody) => {
     console.log(`DM sent successfully in ${duration}ms:`, {
       targetMemberId,
       chatRoomId,
-      messageId: messageResponse.id
+      messageId: messageResponse.creation_uuid
     });
 
     return {
       success: true,
       chatRoomId: chatRoomId,
-      messageId: messageResponse.id,
+      messageId: messageResponse.creation_uuid,
       duration: duration
     };
   } catch (error) {

@@ -12,8 +12,9 @@ let mockMemberGet;
 let mockMemberPost;
 
 const mockAxiosCreate = jest.fn((config) => {
-  // Return different mocks based on baseURL
-  if (config.baseURL && config.baseURL.includes('auth')) {
+  // Auth API uses baseURL: https://app.circle.so/api/v1/headless
+  // Member API uses baseURL: https://app.circle.so
+  if (config.baseURL && config.baseURL.includes('/v1/headless')) {
     return { post: mockAuthPost };
   } else {
     return { get: mockMemberGet, post: mockMemberPost };
@@ -31,7 +32,8 @@ const {
   findOrCreateDMChatRoom,
   sendChatMessage,
   sendDirectMessage,
-  BOT_USER_ID
+  BOT_USER_ID,
+  BOT_USER_EMAIL
 } = require('../netlify/functions/utils/circle-member-api');
 
 describe('Circle Member API - DM Integration', () => {
@@ -66,8 +68,8 @@ describe('Circle Member API - DM Integration', () => {
       const result = await getBotUserJWT();
 
       expect(result).toBe(mockJWT);
-      expect(mockAuthPost).toHaveBeenCalledWith('/members', {
-        community_member_id: BOT_USER_ID
+      expect(mockAuthPost).toHaveBeenCalledWith('/auth_token', {
+        email: BOT_USER_EMAIL
       });
     });
 
@@ -111,19 +113,17 @@ describe('Circle Member API - DM Integration', () => {
     it('should find existing DM chat room with target member', async () => {
       const mockChatRooms = [
         {
-          id: 'room-1',
-          kind: 'direct',
-          members: [
-            { id: BOT_USER_ID, name: '716.social Bot' },
-            { id: targetMemberId, name: 'Target User' }
+          uuid: 'room-1-uuid',
+          chat_room_kind: 'direct',
+          other_participants_preview: [
+            { community_member_id: targetMemberId, name: 'Target User' }
           ]
         },
         {
-          id: 'room-2',
-          kind: 'direct',
-          members: [
-            { id: BOT_USER_ID, name: '716.social Bot' },
-            { id: 'other-member', name: 'Other User' }
+          uuid: 'room-2-uuid',
+          chat_room_kind: 'direct',
+          other_participants_preview: [
+            { community_member_id: 'other-member', name: 'Other User' }
           ]
         }
       ];
@@ -137,13 +137,12 @@ describe('Circle Member API - DM Integration', () => {
 
       const result = await findDMChatRoom(mockJWT, targetMemberId);
 
-      expect(result).toBe('room-1');
+      expect(result).toBe('room-1-uuid');
       expect(mockMemberGet).toHaveBeenCalledWith(
-        '/api/headless/v1/chat_rooms',
+        '/api/headless/v1/messages',
         expect.objectContaining({
           params: {
-            per_page: 100,
-            kind: 'direct'
+            per_page: 100
           }
         })
       );
@@ -154,11 +153,10 @@ describe('Circle Member API - DM Integration', () => {
         data: {
           records: [
             {
-              id: 'room-2',
-              kind: 'direct',
-              members: [
-                { id: BOT_USER_ID, name: '716.social Bot' },
-                { id: 'other-member', name: 'Other User' }
+              uuid: 'room-2-uuid',
+              chat_room_kind: 'direct',
+              other_participants_preview: [
+                { community_member_id: 'other-member', name: 'Other User' }
               ]
             }
           ],
@@ -189,12 +187,11 @@ describe('Circle Member API - DM Integration', () => {
         data: {
           records: [
             {
-              id: 'group-room',
-              kind: 'group_chat',
-              members: [
-                { id: BOT_USER_ID },
-                { id: targetMemberId },
-                { id: 'third-member' }
+              uuid: 'group-room-uuid',
+              chat_room_kind: 'group_chat',
+              other_participants_preview: [
+                { community_member_id: targetMemberId },
+                { community_member_id: 'third-member' }
               ]
             }
           ]
@@ -204,6 +201,29 @@ describe('Circle Member API - DM Integration', () => {
       const result = await findDMChatRoom(mockJWT, targetMemberId);
 
       expect(result).toBeNull();
+    });
+
+    it('should match target member using string comparison', async () => {
+      // Test that numeric IDs match string IDs (e.g., Admin API returns number, participant has number)
+      const numericMemberId = 55423517;
+
+      mockMemberGet.mockResolvedValue({
+        data: {
+          records: [
+            {
+              uuid: 'numeric-room-uuid',
+              chat_room_kind: 'direct',
+              other_participants_preview: [
+                { community_member_id: 55423517, name: 'Numeric User' }
+              ]
+            }
+          ]
+        }
+      });
+
+      const result = await findDMChatRoom(mockJWT, numericMemberId);
+
+      expect(result).toBe('numeric-room-uuid');
     });
 
     it('should handle Member API errors', async () => {
@@ -224,38 +244,53 @@ describe('Circle Member API - DM Integration', () => {
     const targetMemberId = 'target-member-123';
 
     it('should create new DM chat room successfully', async () => {
-      const mockRoomId = 'new-room-uuid';
+      const mockRoomUuid = 'new-room-uuid';
 
       mockMemberPost.mockResolvedValue({
         data: {
-          id: mockRoomId,
-          kind: 'direct',
-          members: [
-            { id: BOT_USER_ID },
-            { id: targetMemberId }
-          ]
+          chat_room: {
+            uuid: mockRoomUuid,
+            kind: 'direct'
+          }
         }
       });
 
       const result = await createDMChatRoom(mockJWT, targetMemberId);
 
-      expect(result).toBe(mockRoomId);
-      expect(mockMemberPost).toHaveBeenCalledWith('/api/headless/v1/chat_rooms', {
-        kind: 'direct',
-        member_ids: [targetMemberId]
+      expect(result).toBe(mockRoomUuid);
+      expect(mockMemberPost).toHaveBeenCalledWith('/api/headless/v1/messages', {
+        chat_room: {
+          kind: 'direct',
+          community_member_ids: [targetMemberId]
+        }
       });
     });
 
-    it('should throw error if response missing id', async () => {
+    it('should throw error if response missing uuid', async () => {
       mockMemberPost.mockResolvedValue({
         data: {
-          // Missing id
+          chat_room: {
+            // Missing uuid
+            kind: 'direct'
+          }
+        }
+      });
+
+      await expect(createDMChatRoom(mockJWT, targetMemberId)).rejects.toThrow(
+        'Create chat room response missing uuid'
+      );
+    });
+
+    it('should throw error if response missing chat_room', async () => {
+      mockMemberPost.mockResolvedValue({
+        data: {
+          // Missing chat_room wrapper
           kind: 'direct'
         }
       });
 
       await expect(createDMChatRoom(mockJWT, targetMemberId)).rejects.toThrow(
-        'Create chat room response missing id'
+        'Create chat room response missing uuid'
       );
     });
 
@@ -277,15 +312,17 @@ describe('Circle Member API - DM Integration', () => {
     const targetMemberId = 'target-member-123';
 
     it('should return existing chat room if found', async () => {
-      const existingRoomId = 'existing-room';
+      const existingRoomUuid = 'existing-room-uuid';
 
       mockMemberGet.mockResolvedValue({
         data: {
           records: [
             {
-              id: existingRoomId,
-              kind: 'direct',
-              members: [{ id: BOT_USER_ID }, { id: targetMemberId }]
+              uuid: existingRoomUuid,
+              chat_room_kind: 'direct',
+              other_participants_preview: [
+                { community_member_id: targetMemberId }
+              ]
             }
           ]
         }
@@ -293,12 +330,12 @@ describe('Circle Member API - DM Integration', () => {
 
       const result = await findOrCreateDMChatRoom(mockJWT, targetMemberId);
 
-      expect(result).toBe(existingRoomId);
+      expect(result).toBe(existingRoomUuid);
       expect(mockMemberPost).not.toHaveBeenCalled(); // Should not create new room
     });
 
     it('should create new chat room if none exists', async () => {
-      const newRoomId = 'new-room-uuid';
+      const newRoomUuid = 'new-room-uuid';
 
       // Find returns empty
       mockMemberGet.mockResolvedValue({
@@ -310,14 +347,16 @@ describe('Circle Member API - DM Integration', () => {
       // Create succeeds
       mockMemberPost.mockResolvedValue({
         data: {
-          id: newRoomId,
-          kind: 'direct'
+          chat_room: {
+            uuid: newRoomUuid,
+            kind: 'direct'
+          }
         }
       });
 
       const result = await findOrCreateDMChatRoom(mockJWT, targetMemberId);
 
-      expect(result).toBe(newRoomId);
+      expect(result).toBe(newRoomUuid);
       expect(mockMemberGet).toHaveBeenCalled();
       expect(mockMemberPost).toHaveBeenCalled();
     });
@@ -325,7 +364,7 @@ describe('Circle Member API - DM Integration', () => {
 
   describe('sendChatMessage - Send Message to Chat Room', () => {
     const mockJWT = 'test.jwt.token';
-    const chatRoomId = 'chat-room-uuid';
+    const chatRoomUuid = 'chat-room-uuid';
     const mockMessageBody = {
       body: {
         type: 'doc',
@@ -341,22 +380,20 @@ describe('Circle Member API - DM Integration', () => {
     };
 
     it('should send message to chat room successfully', async () => {
-      const mockMessageId = 'message-uuid';
+      const mockCreationUuid = 'creation-uuid-123';
 
       mockMemberPost.mockResolvedValue({
         data: {
-          id: mockMessageId,
-          chat_room_id: chatRoomId,
-          rich_text_body: mockMessageBody,
-          created_at: '2025-02-05T12:00:00Z'
+          creation_uuid: mockCreationUuid,
+          sent_at: '2025-02-05T12:00:00Z'
         }
       });
 
-      const result = await sendChatMessage(mockJWT, chatRoomId, mockMessageBody);
+      const result = await sendChatMessage(mockJWT, chatRoomUuid, mockMessageBody);
 
-      expect(result.id).toBe(mockMessageId);
+      expect(result.creation_uuid).toBe(mockCreationUuid);
       expect(mockMemberPost).toHaveBeenCalledWith(
-        `/api/headless/v1/messages/${chatRoomId}/chat_room_messages`,
+        `/api/headless/v1/messages/${chatRoomUuid}/chat_room_messages`,
         { rich_text_body: mockMessageBody },
         { timeout: 30000 }
       );
@@ -371,7 +408,7 @@ describe('Circle Member API - DM Integration', () => {
 
       mockMemberPost.mockRejectedValue(error);
 
-      await expect(sendChatMessage(mockJWT, chatRoomId, mockMessageBody)).rejects.toThrow();
+      await expect(sendChatMessage(mockJWT, chatRoomUuid, mockMessageBody)).rejects.toThrow();
     });
   });
 
@@ -391,8 +428,8 @@ describe('Circle Member API - DM Integration', () => {
 
     it('should complete full DM workflow successfully', async () => {
       const mockJWT = 'test.jwt.token';
-      const mockChatRoomId = 'chat-room-uuid';
-      const mockMessageId = 'message-uuid';
+      const mockChatRoomUuid = 'chat-room-uuid';
+      const mockCreationUuid = 'creation-uuid-123';
 
       // Mock JWT generation
       mockAuthPost.mockResolvedValue({
@@ -407,18 +444,18 @@ describe('Circle Member API - DM Integration', () => {
       // Mock chat room creation
       mockMemberPost
         .mockResolvedValueOnce({
-          data: { id: mockChatRoomId }
+          data: { chat_room: { uuid: mockChatRoomUuid, kind: 'direct' } }
         })
         // Mock message send
         .mockResolvedValueOnce({
-          data: { id: mockMessageId }
+          data: { creation_uuid: mockCreationUuid, sent_at: '2025-02-05T12:00:00Z' }
         });
 
       const result = await sendDirectMessage(targetMemberId, mockMessageBody);
 
       expect(result.success).toBe(true);
-      expect(result.chatRoomId).toBe(mockChatRoomId);
-      expect(result.messageId).toBe(mockMessageId);
+      expect(result.chatRoomId).toBe(mockChatRoomUuid);
+      expect(result.messageId).toBe(mockCreationUuid);
       expect(result.duration).toBeGreaterThanOrEqual(0);
     });
 
@@ -467,7 +504,7 @@ describe('Circle Member API - DM Integration', () => {
 
     it('should return error object if message send fails', async () => {
       const mockJWT = 'test.jwt.token';
-      const mockChatRoomId = 'chat-room-uuid';
+      const mockChatRoomUuid = 'chat-room-uuid';
 
       mockAuthPost.mockResolvedValue({
         data: { access_token: mockJWT }
@@ -477,8 +514,11 @@ describe('Circle Member API - DM Integration', () => {
         data: {
           records: [
             {
-              id: mockChatRoomId,
-              members: [{ id: BOT_USER_ID }, { id: targetMemberId }]
+              uuid: mockChatRoomUuid,
+              chat_room_kind: 'direct',
+              other_participants_preview: [
+                { community_member_id: targetMemberId }
+              ]
             }
           ]
         }
@@ -497,7 +537,7 @@ describe('Circle Member API - DM Integration', () => {
     it('should reuse existing chat room on subsequent messages', async () => {
       const targetMemberId = 'target-member-123';
       const mockJWT = 'test.jwt.token';
-      const existingRoomId = 'existing-room';
+      const existingRoomUuid = 'existing-room-uuid';
       const mockMessageBody = {
         body: {
           type: 'doc',
@@ -515,8 +555,11 @@ describe('Circle Member API - DM Integration', () => {
         data: {
           records: [
             {
-              id: existingRoomId,
-              members: [{ id: BOT_USER_ID }, { id: targetMemberId }]
+              uuid: existingRoomUuid,
+              chat_room_kind: 'direct',
+              other_participants_preview: [
+                { community_member_id: targetMemberId }
+              ]
             }
           ]
         }
@@ -524,13 +567,13 @@ describe('Circle Member API - DM Integration', () => {
 
       // Message send
       mockMemberPost.mockResolvedValue({
-        data: { id: 'message-1' }
+        data: { creation_uuid: 'message-1', sent_at: '2025-02-05T12:00:00Z' }
       });
 
       const result = await sendDirectMessage(targetMemberId, mockMessageBody);
 
       expect(result.success).toBe(true);
-      expect(result.chatRoomId).toBe(existingRoomId);
+      expect(result.chatRoomId).toBe(existingRoomUuid);
 
       // Verify no chat room creation attempted
       expect(mockMemberPost).toHaveBeenCalledTimes(1); // Only message send, no room creation

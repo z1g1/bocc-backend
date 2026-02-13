@@ -58,6 +58,19 @@ This is a Netlify Functions backend API for Buffalo Open Coffee Club (BOCC) that
 - Headless Auth API integration via `netlify/functions/utils/circle-member-api.js` (bot user DMs)
 - **Important limitation:** Circle.so Admin API v2 does NOT expose audience segments via API; the codebase uses client-side filtering of all members instead (see `docs/CIRCLE_SEGMENTS_RESEARCH.md`)
 
+**Circle.so API URLs — IMPORTANT:**
+All Circle.so APIs live under `app.circle.so`. Other Circle subdomains are documentation/Swagger sites, NOT live API servers:
+- `app.circle.so` — **Correct.** All API requests go here.
+- `api.circle.so` — **WRONG.** This is the Circle developer docs site (Next.js). POSTing here returns 405 "Method Not Allowed".
+- `api-headless.circle.so` — **WRONG.** This is the Swagger UI docs for the Headless API. Requests here return nginx 404.
+
+The three APIs and their base URLs:
+| API | Base URL | Auth | Used in |
+|-----|----------|------|---------|
+| Admin API v2 | `https://app.circle.so/api/admin/v2` | `CIRCLE_API_TOKEN` Bearer | `circle.js` |
+| Headless Auth API | `https://app.circle.so/api/v1/headless` | `CIRCLE_HEADLESS_API` Bearer | `circle-member-api.js` (JWT generation) |
+| Headless Member API | `https://app.circle.so/api/headless/v1` | Member JWT Bearer | `circle-member-api.js` (chat rooms, DMs) |
+
 **Module System:** CommonJS (require/module.exports)
 - Project uses CommonJS syntax, not ES modules
 - All files use `.js` extension with `require()` and `module.exports`
@@ -214,9 +227,10 @@ All database operations are in `netlify/functions/utils/airtable.js`:
 - Uses Admin API v2 at `https://app.circle.so/api/admin/v2`, auth via `CIRCLE_API_TOKEN`
 
 **Circle.so Headless Auth API** (`netlify/functions/utils/circle-member-api.js`):
-- Sends DMs from a bot user ("716.social Bot") for automated warnings
-- Uses JWT authentication via `CIRCLE_HEADLESS_API` token
-- Bot User ID: `73e5a590`, Admin Member ID: `2d8e9215`
+- Sends DMs from a bot user ("716.social Bot", email: `bocc-bot@zackglick.com`)
+- Auth API at `https://app.circle.so/api/v1/headless/auth_token` generates member JWTs
+- Member API at `https://app.circle.so/api/headless/v1/...` for chat rooms and messages
+- Bot authenticated by email (NOT by community_member_id — the URL slug `73e5a590` is not the internal ID)
 
 **Profile Photo Enforcement** (`netlify/functions/utils/enforcement-logic.js`):
 - Progressive warning system: warnings 1-4 send DMs, warning 5 deactivates account
@@ -336,3 +350,6 @@ cp -r prompts/.claude/commands/* ~/.claude/commands/ 2>/dev/null || true
 Run this setup at the start of each new Claude Code web session. Local terminal
 sessions using symlinks do not need this step.
 
+## Git Usage
+
+Run all git commands from the project working directory. Do not use `git -C` to specify paths — use plain `git add`, `git commit`, etc
